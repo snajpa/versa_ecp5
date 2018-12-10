@@ -147,6 +147,59 @@ class ECP5DDRPHY(Module, AutoCSR):
                         o_Q=getattr(pads, name)[i]
                 )
 
+
+        # DQSBUFM
+        dqsr90  = Signal()
+        dqsw270 = Signal()
+        dqsw    = Signal()
+        rdpntr  = Signal(3)
+        wrpntr  = Signal(3)
+        self.specials += Instance("DQSBUFM",
+            i_DDRDEL=0b0,
+            i_PAUSE=0b0,
+            i_DQSI=pads.dqs_p[0],
+            i_READ0=0b0,
+            i_READ1=0b0,
+            i_READCLKSEL0=0b0,
+            i_READCLKSEL1=0b0,
+            i_READCLKSEL2=0b0,
+            i_DYNDELAY0=0b0,
+            i_DYNDELAY1=0b0,
+            i_DYNDELAY2=0b0,
+            i_DYNDELAY3=0b0,
+            i_DYNDELAY4=0b0,
+            i_DYNDELAY5=0b0,
+            i_DYNDELAY6=0b0,
+            i_DYNDELAY7=0b0,
+
+            i_RDLOADN=0,
+            i_RDMOVE=0,
+            i_RDDIRECTION=0,
+            i_WRLOADN=0,
+            i_WRMOVE=0,
+            i_WRDIRECTION=0,
+
+            #o_RDCFLAG=,
+            #o_WRCFLAG=,
+
+            #o_DATAVALID=,
+            #o_BURSTDET=,
+
+            o_DQSR90=dqsr90,
+            o_RDPNTR0=rdpntr[0],
+            o_RDPNTR1=rdpntr[1],
+            o_RDPNTR2=rdpntr[2],
+            o_WRPNTR0=wrpntr[0],
+            o_WRPNTR1=wrpntr[1],
+            o_WRPNTR2=wrpntr[2],
+
+            i_SCLK=ClockSignal("sys"),
+            i_ECLK=ClockSignal("sys2x"),
+
+            o_DQSW270=dqsw270,
+            o_DQSW=dqsw
+        )
+
         # DQS and DM
         oe_dqs = Signal()
         dqs_preamble = Signal()
@@ -184,14 +237,15 @@ class ECP5DDRPHY(Module, AutoCSR):
                     dm_data_muxed.eq(dm_data[:4])
                 )
             self.specials += \
-                Instance("ODDRX2F",
+                Instance("ODDRX2DQA",
                     i_D0=dm_data_muxed[0],
                     i_D1=dm_data_muxed[1],
                     i_D2=dm_data_muxed[2],
                     i_D3=dm_data_muxed[3],
+                    i_RST=ResetSignal(),
+                    i_DQSW270=dqsw270,
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
-                    i_RST=ResetSignal(),
                     o_Q=dm_o_nodelay
                 )
             self.specials += \
@@ -208,14 +262,15 @@ class ECP5DDRPHY(Module, AutoCSR):
             dqs_delayed = Signal()
             dqs_oe = Signal()
             self.specials += \
-                Instance("ODDRX2F",
+                Instance("ODDRX2DQSB",
                     i_D0=dqs_serdes_pattern[0],
                     i_D1=dqs_serdes_pattern[1],
                     i_D2=dqs_serdes_pattern[2],
                     i_D3=dqs_serdes_pattern[3],
+                    i_RST=ResetSignal(),
+                    i_DQSW=dqsw,
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
-                    i_RST=ResetSignal(),
                     o_Q=dqs_nodelay
                 )
             self.specials += \
@@ -228,11 +283,12 @@ class ECP5DDRPHY(Module, AutoCSR):
                 #o_CFLAG=,
             )
             self.specials += \
-                Instance("TSHX2DQA",
+                Instance("TSHX2DQSA",
                     i_T0=oe_dqs,
                     i_T1=oe_dqs,
                     i_SCLK=ClockSignal(),
                     i_ECLK=ClockSignal("sys2x"),
+                    i_DQSW=dqsw,
                     i_RST=ResetSignal(),
                     o_Q=dqs_oe,
                 )
@@ -263,14 +319,15 @@ class ECP5DDRPHY(Module, AutoCSR):
                     dq_data_muxed.eq(dq_data[:4])
                 )
             self.specials += \
-                Instance("ODDRX2F",
+                Instance("ODDRX2DQA",
                     i_D0=dq_data_muxed[0],
                     i_D1=dq_data_muxed[1],
                     i_D2=dq_data_muxed[2],
                     i_D3=dq_data_muxed[3],
+                    i_RST=ResetSignal(),
+                    i_DQSW270=dqsw270,
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
-                    i_RST=ResetSignal(),
                     o_Q=dq_o_nodelay
                 )
 
@@ -286,12 +343,18 @@ class ECP5DDRPHY(Module, AutoCSR):
             dq_i_data = Signal(8)
             dq_i_data_d = Signal(8)
             self.specials += \
-                Instance("IDDRX2F",
+                Instance("IDDRX2DQA",
                     i_D=dq_i_delayed,
-                    i_SCLK=ClockSignal(),
                     i_RST=ResetSignal(),
+                    i_DQSR90=dqsr90,
+                    i_SCLK=ClockSignal(),
                     i_ECLK=ClockSignal("sys2x"),
-                    i_ALIGNWD=0,
+                    i_RDPNTR0=rdpntr[0],
+                    i_RDPNTR1=rdpntr[1],
+                    i_RDPNTR2=rdpntr[2],
+                    i_WRPNTR0=wrpntr[0],
+                    i_WRPNTR1=wrpntr[1],
+                    i_WRPNTR2=wrpntr[2],
                     o_Q0=dq_i_data[0],
                     o_Q1=dq_i_data[1],
                     o_Q2=dq_i_data[2],
@@ -315,32 +378,33 @@ class ECP5DDRPHY(Module, AutoCSR):
                 self.dfi.phases[1].rddata[i].eq(dq_bitslip.o[2]),
                 self.dfi.phases[1].rddata[databits+i].eq(dq_bitslip.o[3])
             ]
-            self.specials += \
-                Instance("DELAYF",
-                    i_A=dq_i_nodelay,
-                    i_LOADN=self._dly_sel.storage[i//8] & self._rdly_dq_rst.re,
-                    i_MOVE=self._dly_sel.storage[i//8] & self._wdly_dq_inc.re,
-                    i_DIRECTION=0,
-                    o_Z=dq_i_delayed,
-                    #o_CFLAG=,
-                )
+            #self.specials += \
+            #    Instance("DELAYF",
+            #        i_A=dq_i_nodelay,
+            #        i_LOADN=self._dly_sel.storage[i//8] & self._rdly_dq_rst.re,
+            #        i_MOVE=self._dly_sel.storage[i//8] & self._wdly_dq_inc.re,
+            #        i_DIRECTION=0,
+            #        o_Z=dq_i_delayed,
+            #        #o_CFLAG=,
+            #    )
             self.specials += \
                 Instance("TSHX2DQA",
                     i_T0=oe_dq,
                     i_T1=oe_dq,
                     i_SCLK=ClockSignal(),
                     i_ECLK=ClockSignal("sys2x"),
+                    i_DQSW270=dqsw270,
                     i_RST=ResetSignal(),
                     o_Q=dq_oe,
                 )
-            self.specials += Tristate(pads.dq[i], dq_o_delayed, dq_oe, dq_i_nodelay)
+            self.specials += Tristate(pads.dq[i], dq_o_delayed, dq_oe, dq_i_delayed)
 
         # Flow control
         #
         # total read latency:
-        #  N cycles through ODDRX2F FIXME
+        #  N cycles through ODDRX2DQA FIXME
         #  cl_sys_latency cycles CAS
-        #  M cycles through IDDRX2F FIXME
+        #  M cycles through IDDRX2DQA FIXME
         rddata_en = self.dfi.phases[self.settings.rdphase].rddata_en
         for i in range(self.settings.read_latency-1):
             n_rddata_en = Signal()
