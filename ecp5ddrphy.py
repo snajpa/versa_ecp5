@@ -99,13 +99,8 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
                     i_RST=ResetSignal(),
-                    o_Q=sd_clk_se
+                    o_Q=pads.clk_p[i]
                 ),
-                Instance("OBUFDS",
-                    i_I=sd_clk_se,
-                    o_O=pads.clk_p[i],
-                    o_OB=pads.clk_n[i]
-                )
             ]
 
         # Addresses and commands
@@ -221,7 +216,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
                     i_RST=ResetSignal(),
-                    o_Q=dm_o_nodelay
+                    o_Q=dqs_nodelay
                 )
             self.specials += \
                 Instance("DELAYF",
@@ -239,7 +234,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_SCLK=ClockSignal(),
                     i_ECLK=ClockSignal("sys2x"),
                     i_RST=ResetSignal(),
-                    o_q=dqs_oe,
+                    o_Q=dqs_oe,
                 )
             self.specials += Tristate(pads.dqs_p[i], dqs_delayed, dqs_oe)
 
@@ -336,7 +331,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_SCLK=ClockSignal(),
                     i_ECLK=ClockSignal("sys2x"),
                     i_RST=ResetSignal(),
-                    o_q=dq_oe,
+                    o_Q=dq_oe,
                 )
             self.specials += Tristate(pads.dq[i], dq_o_delayed, dq_oe, dq_i_nodelay)
 
