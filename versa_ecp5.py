@@ -34,12 +34,12 @@ _ddram_io = [
             Misc("TERMINATION=75")),
         Subsignal("dqs_p", Pins("K2 H4"), IOStandard("SSTL135D_I")),
         Subsignal("dqs_n", Pins("J1 G5"), IOStandard("SSTL135D_I")),
-        Subsignal("clk_p", Pins("P3"), IOStandard("SSTL135D_I")),
-        Subsignal("clk_n", Pins("P4"), IOStandard("SSTL135D_I")),
+        Subsignal("clk_p", Pins("M4"), IOStandard("SSTL135D_I")),
+        Subsignal("clk_n", Pins("N5"), IOStandard("SSTL135D_I")),
         Subsignal("cke", Pins("N2"), IOStandard("SSTL135_I")),
         Subsignal("odt", Pins("L2"), IOStandard("SSTL135_I")),
         Subsignal("reset_n", Pins("N4"), IOStandard("SSTL135_I")),
-        Misc("SLEW=FAST"),
+        Misc("SLEWRATE=FAST"),
     )
 ]
 
