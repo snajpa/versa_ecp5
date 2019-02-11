@@ -13,6 +13,7 @@ from litex.soc.interconnect.csr import *
 from litedram.common import PhySettings
 from litedram.phy.dfi import *
 
+# Helpers ------------------------------------------------------------------------------------------
 
 def get_cl_cw(memtype, tck):
     f_to_cl_cwl = OrderedDict()
@@ -33,6 +34,7 @@ def get_sys_phases(nphases, sys_latency, cas_latency):
     cmd_phase = (dat_phase - 1)%nphases
     return cmd_phase, dat_phase
 
+# Lattice ECP5 DDR PHY -----------------------------------------------------------------------------
 
 class ECP5DDRPHY(Module, AutoCSR):
     def __init__(self, pads, sys_clk_freq=100e6):
@@ -43,6 +45,10 @@ class ECP5DDRPHY(Module, AutoCSR):
         nranks = 1 if not hasattr(pads, "cs_n") else len(pads.cs_n)
         databits = len(pads.dq)
         nphases = 2
+
+        # Registers --------------------------------------------------------------------------------
+
+        self._half_sys8x_taps = CSRStorage(4) # FIXME
 
         self._wlevel_en = CSRStorage()
         self._wlevel_strobe = CSR()
@@ -59,7 +65,7 @@ class ECP5DDRPHY(Module, AutoCSR):
         self._wdly_dqs_rst = CSR()
         self._wdly_dqs_inc = CSR()
 
-        # compute phy settings
+        # PHY settings -----------------------------------------------------------------------------
         cl, cwl = get_cl_cw(memtype, tck)
         cl_sys_latency = get_sys_latency(nphases, cl)
         cwl_sys_latency = get_sys_latency(nphases, cwl)
@@ -81,13 +87,14 @@ class ECP5DDRPHY(Module, AutoCSR):
             write_latency=cwl_sys_latency
         )
 
+        # DFI Interface ----------------------------------------------------------------------------
         self.dfi = Interface(addressbits, bankbits, nranks, 4*databits, 4)
 
         # # #
 
         bl8_sel = Signal()
 
-        # Clock
+        # Clock ------------------------------------------------------------------------------------
         for i in range(len(pads.clk_p)):
             sd_clk_se = Signal()
             self.specials += [
@@ -103,7 +110,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 ),
             ]
 
-        # Addresses and commands
+        # Addresses and Commands -------------------------------------------------------------------
         for i in range(addressbits):
             self.specials += \
                 Instance("ODDRX2F",
@@ -146,7 +153,8 @@ class ECP5DDRPHY(Module, AutoCSR):
                         i_RST=ResetSignal(),
                         o_Q=getattr(pads, name)[i]
                 )
-        # DQ
+
+        # DQ ---------------------------------------------------------------------------------------
         oe_dq = Signal()
         oe_dqs = Signal()
         for i in range(databits//8):
@@ -202,7 +210,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 o_DQSW=dqsw
             )
 
-            # DQS and DM
+            # DQS and DM ---------------------------------------------------------------------------
             dqs_preamble = Signal()
             dqs_postamble = Signal()
             dqs_serdes_pattern = Signal(8, reset=0b01010101)
@@ -397,7 +405,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                     )
                 self.specials += Tristate(pads.dq[j], dq_o_delayed, dq_oe, dq_i_delayed)
 
-        # Flow control
+        # Flow control -----------------------------------------------------------------------------
         #
         # total read latency:
         #  N cycles through ODDRX2DQA FIXME
