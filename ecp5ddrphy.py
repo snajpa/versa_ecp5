@@ -48,7 +48,7 @@ class ECP5DDRPHY(Module, AutoCSR):
 
         # Registers --------------------------------------------------------------------------------
 
-        self._half_sys8x_taps = CSRStorage(4) # FIXME
+        self._half_sys8x_taps = CSRStorage(4, reset=0) # FIXME
 
         self._wlevel_en = CSRStorage()
         self._wlevel_strobe = CSR()
@@ -165,36 +165,20 @@ class ECP5DDRPHY(Module, AutoCSR):
             rdpntr  = Signal(3)
             wrpntr  = Signal(3)
             self.specials += Instance("DQSBUFM",
-                i_DDRDEL=0b0,
-                i_PAUSE=0b0,
+                # Clocks
+                i_SCLK=ClockSignal("sys"),
+                i_ECLK=ClockSignal("sys2x"),
+
+                # Control
+                i_RDLOADN=~(self._dly_sel.storage[i//8] & self._rdly_dq_rst.re),
+                i_RDMOVE=self._dly_sel.storage[i//8] & self._rdly_dq_inc.re,
+                i_RDDIRECTION=1,
+                i_WRLOADN=~(self._dly_sel.storage[i//8] & self._wdly_dq_rst.re),
+                i_WRMOVE=self._dly_sel.storage[i//8] & self._wdly_dq_inc.re,
+                i_WRDIRECTION=1,
+
+                # Reads (generate shifted DQS clock for reads)
                 i_DQSI=pads.dqs_p[i],
-                i_READ0=0b0,
-                i_READ1=0b0,
-                i_READCLKSEL0=0b0,
-                i_READCLKSEL1=0b0,
-                i_READCLKSEL2=0b0,
-                i_DYNDELAY0=0b0,
-                i_DYNDELAY1=0b0,
-                i_DYNDELAY2=0b0,
-                i_DYNDELAY3=0b0,
-                i_DYNDELAY4=0b0,
-                i_DYNDELAY5=0b0,
-                i_DYNDELAY6=0b0,
-                i_DYNDELAY7=0b0,
-
-                i_RDLOADN=0,
-                i_RDMOVE=0,
-                i_RDDIRECTION=0,
-                i_WRLOADN=0,
-                i_WRMOVE=0,
-                i_WRDIRECTION=0,
-
-                #o_RDCFLAG=,
-                #o_WRCFLAG=,
-
-                #o_DATAVALID=,
-                #o_BURSTDET=,
-
                 o_DQSR90=dqsr90,
                 o_RDPNTR0=rdpntr[0],
                 o_RDPNTR1=rdpntr[1],
@@ -203,9 +187,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 o_WRPNTR1=wrpntr[1],
                 o_WRPNTR2=wrpntr[2],
 
-                i_SCLK=ClockSignal("sys"),
-                i_ECLK=ClockSignal("sys2x"),
-
+                # Writes (generated shifted ECLK clock for writes)
                 o_DQSW270=dqsw270,
                 o_DQSW=dqsw
             )
@@ -227,7 +209,6 @@ class ECP5DDRPHY(Module, AutoCSR):
                     dqs_serdes_pattern.eq(0b01010101)
                 )
 
-            dm_o_nodelay = Signal()
             dm_data = Signal(8)
             dm_data_d = Signal(8)
             dm_data_muxed = Signal(4)
@@ -254,20 +235,10 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_DQSW270=dqsw270,
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
-                    o_Q=dm_o_nodelay
+                    o_Q=pads.dm[i]
                 )
-            self.specials += \
-                Instance("DELAYF",
-                i_A=dm_o_nodelay,
-                i_LOADN=self._dly_sel.storage[i] & self._wdly_dq_rst.re,
-                i_MOVE=self._dly_sel.storage[i] & self._wdly_dq_inc.re,
-                i_DIRECTION=0,
-                o_Z=pads.dm[i],
-                #o_CFLAG=,
-            )
 
-            dqs_nodelay = Signal()
-            dqs_delayed = Signal()
+            dqs = Signal()
             dqs_oe = Signal()
             self.specials += \
                 Instance("ODDRX2DQSB",
@@ -279,17 +250,8 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_DQSW=dqsw,
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
-                    o_Q=dqs_nodelay
+                    o_Q=dqs
                 )
-            self.specials += \
-                Instance("DELAYF",
-                i_A=dqs_nodelay,
-                i_LOADN=self._dly_sel.storage[i] & self._wdly_dqs_rst.re,
-                i_MOVE=self._dly_sel.storage[i] & self._wdly_dqs_inc.re,
-                i_DIRECTION=0,
-                o_Z=dqs_delayed,
-                #o_CFLAG=,
-            )
             self.specials += \
                 Instance("TSHX2DQSA",
                     i_T0=oe_dqs,
@@ -300,13 +262,11 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_RST=ResetSignal(),
                     o_Q=dqs_oe,
                 )
-            self.specials += Tristate(pads.dqs_p[i], dqs_delayed, dqs_oe)
+            self.specials += Tristate(pads.dqs_p[i], dqs, dqs_oe)
 
             for j in range(8*i, 8*(i+1)):
-                dq_o_nodelay = Signal()
-                dq_o_delayed = Signal()
-                dq_i_nodelay = Signal()
-                dq_i_delayed = Signal()
+                dq_o = Signal()
+                dq_i = Signal()
                 dq_oe = Signal()
                 dq_data = Signal(8)
                 dq_data_d = Signal(8)
@@ -334,33 +294,23 @@ class ECP5DDRPHY(Module, AutoCSR):
                         i_DQSW270=dqsw270,
                         i_ECLK=ClockSignal("sys2x"),
                         i_SCLK=ClockSignal(),
-                        o_Q=dq_o_nodelay
-                    )
-
-                self.specials += \
-                    Instance("DELAYF",
-                        i_A=dq_o_nodelay,
-                        i_LOADN=self._dly_sel.storage[i] & self._wdly_dq_rst.re,
-                        i_MOVE=self._dly_sel.storage[i] & self._wdly_dq_inc.re,
-                        i_DIRECTION=0,
-                        o_Z=dq_o_delayed,
-                        #o_CFLAG=,
+                        o_Q=dq_o
                     )
                 dq_i_data = Signal(8)
                 dq_i_data_d = Signal(8)
                 self.specials += \
                     Instance("IDDRX2DQA",
-                        i_D=dq_i_delayed,
+                        i_D=dq_i,
                         i_RST=ResetSignal(),
                         i_DQSR90=dqsr90,
                         i_SCLK=ClockSignal(),
                         i_ECLK=ClockSignal("sys2x"),
-                        i_RDPNTR0=rdpntr[0],
-                        i_RDPNTR1=rdpntr[1],
-                        i_RDPNTR2=rdpntr[2],
-                        i_WRPNTR0=wrpntr[0],
-                        i_WRPNTR1=wrpntr[1],
-                        i_WRPNTR2=wrpntr[2],
+                        i_RDPNTR0=rdpntr[0], # CHECKME: are RDPNTR/WRPTNR
+                        i_RDPNTR1=rdpntr[1], # behaving correctly when
+                        i_RDPNTR2=rdpntr[2], # READ_0/READCLKSEL signals
+                        i_WRPNTR0=wrpntr[0], # are not used. It should be
+                        i_WRPNTR1=wrpntr[1], # be the case but needs to be
+                        i_WRPNTR2=wrpntr[2], # verified.
                         o_Q0=dq_i_data[0],
                         o_Q1=dq_i_data[1],
                         o_Q2=dq_i_data[2],
@@ -384,15 +334,6 @@ class ECP5DDRPHY(Module, AutoCSR):
                     self.dfi.phases[1].rddata[j].eq(dq_bitslip.o[2]),
                     self.dfi.phases[1].rddata[databits+j].eq(dq_bitslip.o[3])
                 ]
-                #self.specials += \
-                #    Instance("DELAYF",
-                #        i_A=dq_i_nodelay,
-                #        i_LOADN=self._dly_sel.storage[i//8] & self._rdly_dq_rst.re,
-                #        i_MOVE=self._dly_sel.storage[i//8] & self._wdly_dq_inc.re,
-                #        i_DIRECTION=0,
-                #        o_Z=dq_i_delayed,
-                #        #o_CFLAG=,
-                #    )
                 self.specials += \
                     Instance("TSHX2DQA",
                         i_T0=oe_dq,
@@ -403,7 +344,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                         i_RST=ResetSignal(),
                         o_Q=dq_oe,
                     )
-                self.specials += Tristate(pads.dq[j], dq_o_delayed, dq_oe, dq_i_delayed)
+                self.specials += Tristate(pads.dq[j], dq_o, dq_oe, dq_i)
 
         # Flow control -----------------------------------------------------------------------------
         #
