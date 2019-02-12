@@ -187,10 +187,18 @@ class ECP5DDRPHY(Module, AutoCSR):
                 o_WRPNTR1=wrpntr[1],
                 o_WRPNTR2=wrpntr[2],
 
-                # Writes (generated shifted ECLK clock for writes)
+                # Writes (generate shifted ECLK clock for writes)
                 o_DQSW270=dqsw270,
                 o_DQSW=dqsw
             )
+
+            # debug
+            if i == 0:
+                self.dqsr90  = dqsr90
+                self.dqsw270 = dqsw270
+                self.dqsw    = dqsw
+                self.rdpntr  = rdpntr
+                self.wrpntr  = wrpntr
 
             # DQS and DM ---------------------------------------------------------------------------
             dqs_preamble = Signal()
@@ -316,6 +324,9 @@ class ECP5DDRPHY(Module, AutoCSR):
                         o_Q2=dq_i_data[2],
                         o_Q3=dq_i_data[3],
                     )
+                # debug
+                if i == 0 and j == 0:
+                    self.dq_i_data = dq_i_data
                 dq_bitslip = BitSlip(4)
                 self.comb += dq_bitslip.i.eq(dq_i_data)
                 self.sync += \
