@@ -102,6 +102,7 @@ class BaseSoC(SoCSDRAM):
                           integrated_rom_size=0x8000 if with_cpu else 0,
                           with_uart=with_cpu,
                           csr_data_width=8 if with_cpu else 32,
+                          ident="Versa ECP5 test SoC", ident_version=True
                           **kwargs)
 
         # crg
