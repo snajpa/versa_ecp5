@@ -107,6 +107,11 @@ class BaseSoC(SoCSDRAM):
         self.register_sdram(self.ddrphy,
             sdram_module.geom_settings,
             sdram_module.timing_settings)
+        self.add_constant("MEMTEST_BUS_DEBUG", None)
+        self.add_constant("MEMTEST_DATA_SIZE", 1024)
+        self.add_constant("MEMTEST_DATA_DEBUG", None)
+        self.add_constant("MEMTEST_ADDR_SIZE", 1024)
+        self.add_constant("MEMTEST_ADDR_DEBUG", None)
 
         # led blinking
         led_counter = Signal(32)
