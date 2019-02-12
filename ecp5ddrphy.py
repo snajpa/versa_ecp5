@@ -178,6 +178,8 @@ class ECP5DDRPHY(Module, AutoCSR):
                 i_WRDIRECTION=1,
 
                 # Reads (generate shifted DQS clock for reads)
+                i_READ0=1,
+                i_READ1=1,
                 i_DQSI=pads.dqs_p[i],
                 o_DQSR90=dqsr90,
                 o_RDPNTR0=rdpntr[0],
