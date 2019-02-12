@@ -165,9 +165,10 @@ class ECP5DDRPHY(Module, AutoCSR):
             rdpntr  = Signal(3)
             wrpntr  = Signal(3)
             self.specials += Instance("DQSBUFM",
-                # Clocks
+                # Clocks / Reset
                 i_SCLK=ClockSignal("sys"),
                 i_ECLK=ClockSignal("sys2x"),
+                i_RST=ResetSignal(),
 
                 # Control
                 i_RDLOADN=~(self._dly_sel.storage[i//8] & self._rdly_dq_rst.re),
