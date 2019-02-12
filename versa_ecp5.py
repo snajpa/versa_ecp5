@@ -102,7 +102,7 @@ class BaseSoC(SoCSDRAM):
                           integrated_rom_size=0x8000 if with_cpu else 0,
                           with_uart=with_cpu,
                           csr_data_width=8 if with_cpu else 32,
-                          ident="Versa ECP5 test SoC", ident_version=True
+                          ident="Versa ECP5 test SoC", ident_version=True,
                           **kwargs)
 
         # crg
@@ -162,7 +162,7 @@ def main():
     args = parser.parse_args()
 
     soc = BaseSoC(**soc_sdram_argdict(args))
-    builder = Builder(soc, compile_gateware=False)
+    builder = Builder(soc)
     vns = builder.build(toolchain_path="/usr/local/diamond/3.10_x64/bin/lin64")
     soc.do_exit(vns)
     soc.generate_sdram_phy_py_header()
