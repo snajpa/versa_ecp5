@@ -133,16 +133,11 @@ class BaseSoC(SoCSDRAM):
         self.comb += platform.request("user_led", 0).eq(led_counter[26])
 
         # analyzer
-        if not with_cpu:
-            analyzer_signals = [
-                self.ddrphy.dfi.p0,
-                self.ddrphy.dqsr90,
-                self.ddrphy.dqsw270,
-                self.ddrphy.dqsw,
-                self.ddrphy.rdpntr,
-                self.ddrphy.wrpntr,
-            ]
-            self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals, 1024)
+        #if not with_cpu:
+        #    analyzer_signals = [
+        #        self.ddrphy.dfi.p0,
+        #    ]
+        #    self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals, 1024)
 
     def generate_sdram_phy_py_header(self):
         f = open("test/sdram_init.py", "w")
@@ -162,7 +157,7 @@ def main():
     args = parser.parse_args()
 
     soc = BaseSoC(**soc_sdram_argdict(args))
-    builder = Builder(soc)
+    builder = Builder(soc, output_dir="build", csr_csv="test/csr.csv")
     vns = builder.build(toolchain_path="/usr/local/diamond/3.10_x64/bin/lin64")
     soc.do_exit(vns)
     soc.generate_sdram_phy_py_header()
