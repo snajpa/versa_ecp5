@@ -37,7 +37,7 @@ _ddram_io = [
             "D1 C1 E2 C2 F3 A2 E1 B1"),
             IOStandard("SSTL135_I"),
             Misc("TERMINATION=75")),
-        Subsignal("dqs_p", Pins("K2 H4"), IOStandard("SSTL135D_I")),
+        Subsignal("dqs_p", Pins("K2 H4"), IOStandard("SSTL135D_I"), Misc("TERMINATION=OFF"), Misc("DIFFRESISTOR=100")),
         Subsignal("dqs_n", Pins("J1 G5"), IOStandard("SSTL135D_I")),
         Subsignal("clk_p", Pins("M4"), IOStandard("SSTL135D_I")),
         Subsignal("clk_n", Pins("N5"), IOStandard("SSTL135D_I")),

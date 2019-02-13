@@ -83,7 +83,7 @@ class ECP5DDRPHY(Module, AutoCSR):
             wrcmdphase=wrcmdphase,
             cl=cl,
             cwl=cwl,
-            read_latency=2 + cl_sys_latency + 2 + log2_int(4//nphases) + 3, # FIXME
+            read_latency=2 + cl_sys_latency + 2 + log2_int(4//nphases) + 4, # FIXME
             write_latency=cwl_sys_latency
         )
 
@@ -157,6 +157,20 @@ class ECP5DDRPHY(Module, AutoCSR):
         # DQ ---------------------------------------------------------------------------------------
         oe_dq = Signal()
         oe_dqs = Signal()
+
+
+        global_datavalid = Signal()
+        ddrdel = Signal()
+        ddrdel_lock = Signal()
+        self.specials += Instance("DDRDLLA",
+            i_CLK=ClockSignal("sys2x"),
+            i_RST=ResetSignal(),
+            i_UDDCNTLN=~self._rdly_dq_rst.re,
+            i_FREEZE=0,
+            o_DDRDEL=ddrdel,
+            o_LOCK=ddrdel_lock
+        )
+
         for i in range(databits//8):
             # DQSBUFM
             dqsr90  = Signal()
@@ -164,23 +178,41 @@ class ECP5DDRPHY(Module, AutoCSR):
             dqsw    = Signal()
             rdpntr  = Signal(3)
             wrpntr  = Signal(3)
+            readclksel = Signal(3)
+            self.sync += \
+                If(self._dly_sel.storage[i],
+                    If(self._rdly_dq_rst.re,
+                        readclksel.eq(0)
+                    ).Elif(self._rdly_dq_inc.re,
+                        readclksel.eq(readclksel + 1)
+                    )
+                )
+
+            datavalid = Signal()
+
             self.specials += Instance("DQSBUFM",
                 # Clocks / Reset
                 i_SCLK=ClockSignal("sys"),
                 i_ECLK=ClockSignal("sys2x"),
                 i_RST=ResetSignal(),
+                i_DDRDEL=ddrdel,
+                i_PAUSE=~ddrdel_lock,
 
                 # Control
-                i_RDLOADN=~(self._dly_sel.storage[i//8] & self._rdly_dq_rst.re),
-                i_RDMOVE=self._dly_sel.storage[i//8] & self._rdly_dq_inc.re,
+                # Assert LOADNs to use DDRDEL control
+                i_RDLOADN=0,
+                i_RDMOVE=0,
                 i_RDDIRECTION=1,
-                i_WRLOADN=~(self._dly_sel.storage[i//8] & self._wdly_dq_rst.re),
-                i_WRMOVE=self._dly_sel.storage[i//8] & self._wdly_dq_inc.re,
+                i_WRLOADN=0,
+                i_WRMOVE=0,
                 i_WRDIRECTION=1,
 
                 # Reads (generate shifted DQS clock for reads)
                 i_READ0=1,
                 i_READ1=1,
+                i_READCLKSEL0=readclksel[0],
+                i_READCLKSEL1=readclksel[1],
+                i_READCLKSEL2=readclksel[2],
                 i_DQSI=pads.dqs_p[i],
                 o_DQSR90=dqsr90,
                 o_RDPNTR0=rdpntr[0],
@@ -189,11 +221,15 @@ class ECP5DDRPHY(Module, AutoCSR):
                 o_WRPNTR0=wrpntr[0],
                 o_WRPNTR1=wrpntr[1],
                 o_WRPNTR2=wrpntr[2],
+                o_DATAVALID=datavalid,
 
                 # Writes (generate shifted ECLK clock for writes)
                 o_DQSW270=dqsw270,
                 o_DQSW=dqsw
             )
+
+            if i == 0:
+                self.comb += global_datavalid.eq(datavalid)
 
             # DQS and DM ---------------------------------------------------------------------------
             dqs_serdes_pattern = Signal(8, reset=0b0101)
@@ -297,9 +333,21 @@ class ECP5DDRPHY(Module, AutoCSR):
                     )
                 dq_i_data = Signal(8)
                 dq_i_data_d = Signal(8)
+
+                dq_i_delay = Signal()
+
+                self.specials += \
+                    Instance("DELAYF",
+                        i_A=pads.dq[j],
+                        i_LOADN=1,
+                        i_MOVE=0,
+                        i_DIRECTION=0,
+                        o_Z=dq_i_delay,
+                        p_DEL_MODE="DQS_ALIGNED_X2"
+                    )
                 self.specials += \
                     Instance("IDDRX2DQA",
-                        i_D=pads.dq[j],
+                        i_D=dq_i_delay,
                         i_RST=ResetSignal(),
                         i_DQSR90=dqsr90,
                         i_SCLK=ClockSignal(),
@@ -331,7 +379,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 self.submodules += dq_bitslip
                 self.sync += dq_i_data_d.eq(dq_i_data)
                 self.comb += [
-                    self.dfi.phases[0].rddata[i].eq(dq_bitslip.o[0]),
+                    self.dfi.phases[0].rddata[j].eq(dq_bitslip.o[0]),
                     self.dfi.phases[0].rddata[databits+j].eq(dq_bitslip.o[1]),
                     self.dfi.phases[1].rddata[j].eq(dq_bitslip.o[2]),
                     self.dfi.phases[1].rddata[databits+j].eq(dq_bitslip.o[3])

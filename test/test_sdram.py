@@ -19,7 +19,7 @@ sdram_test            = False
 # Parameters----------------------------------------------------------------------------------------
 
 NBMODULES = 1
-NDELAYS   = 64
+NDELAYS   = 8
 
 # MPR
 MPR_PATTERN = 0b01010101
@@ -184,26 +184,27 @@ if sdram_read_training:
 
         def run(self):
             print("Read leveling...")
-            #ddram_reset_rdelays()
+            ddram_reset_rdelays()
             #ddram_reset_wdelays()
             ddram_set_bitslip(0)
             self.enable_mpr()
             for i in range(NDELAYS):
-                print("delay: {} |".format(i), end="")
-                command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
-                p0 = wb.regs.sdram_dfii_pi0_rddata.read()
-                p1 = wb.regs.sdram_dfii_pi1_rddata.read()
-                for j in range(8):
-                    dq = 0
-                    dq |= (p1 >> (8 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p1 >> (0 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p0 >> (8 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p0 >> (0 + j)) & 0b1
-                    print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
-                print("")
+                for k in range(10):
+                    print("delay: {} |".format(i), end="")
+                    command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
+                    p0 = wb.regs.sdram_dfii_pi0_rddata.read()
+                    p1 = wb.regs.sdram_dfii_pi1_rddata.read()
+                    for j in range(8):
+                        dq = 0
+                        dq |= (p1 >> (8 + j)) & 0b1
+                        dq <<= 1
+                        dq |= (p1 >> (0 + j)) & 0b1
+                        dq <<= 1
+                        dq |= (p0 >> (8 + j)) & 0b1
+                        dq <<= 1
+                        dq |= (p0 >> (0 + j)) & 0b1
+                        print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
+                    print("")
                 for i in range(NBMODULES):
                     wb.regs.ddrphy_dly_sel.write(1 << i)
                     wb.regs.ddrphy_rdly_dq_inc.write(1)
