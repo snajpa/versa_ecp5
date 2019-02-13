@@ -238,7 +238,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 )
 
             dqs = Signal()
-            dqs_oe = Signal()
+            dqs_oe_n = Signal()
             self.specials += \
                 Instance("ODDRX2DQSB",
                     i_D0=dqs_serdes_pattern[0],
@@ -253,20 +253,20 @@ class ECP5DDRPHY(Module, AutoCSR):
                 )
             self.specials += \
                 Instance("TSHX2DQSA",
-                    i_T0=oe_dqs,
-                    i_T1=oe_dqs,
+                    i_T0=~oe_dqs,
+                    i_T1=~oe_dqs,
                     i_SCLK=ClockSignal(),
                     i_ECLK=ClockSignal("sys2x"),
                     i_DQSW=dqsw,
                     i_RST=ResetSignal(),
-                    o_Q=dqs_oe,
+                    o_Q=dqs_oe_n,
                 )
-            self.specials += Tristate(pads.dqs_p[i], dqs, dqs_oe)
+            self.specials += Tristate(pads.dqs_p[i], dqs, ~dqs_oe_n)
 
             for j in range(8*i, 8*(i+1)):
                 dq_o = Signal()
                 dq_i = Signal()
-                dq_oe = Signal()
+                dq_oe_n = Signal()
                 dq_data = Signal(8)
                 dq_data_d = Signal(8)
                 dq_data_muxed = Signal(4)
@@ -299,7 +299,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 dq_i_data_d = Signal(8)
                 self.specials += \
                     Instance("IDDRX2DQA",
-                        i_D=dq_i,
+                        i_D=pads.dq[j],
                         i_RST=ResetSignal(),
                         i_DQSR90=dqsr90,
                         i_SCLK=ClockSignal(),
@@ -338,15 +338,15 @@ class ECP5DDRPHY(Module, AutoCSR):
                 ]
                 self.specials += \
                     Instance("TSHX2DQA",
-                        i_T0=oe_dq,
-                        i_T1=oe_dq,
+                        i_T0=~oe_dq,
+                        i_T1=~oe_dq,
                         i_SCLK=ClockSignal(),
                         i_ECLK=ClockSignal("sys2x"),
                         i_DQSW270=dqsw270,
                         i_RST=ResetSignal(),
-                        o_Q=dq_oe,
+                        o_Q=dq_oe_n,
                     )
-                self.specials += Tristate(pads.dq[j], dq_o, dq_oe, dq_i)
+                self.specials += Tristate(pads.dq[j], dq_o, ~dq_oe_n)
 
         # Flow control -----------------------------------------------------------------------------
         #
