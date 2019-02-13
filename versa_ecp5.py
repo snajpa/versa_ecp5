@@ -133,11 +133,12 @@ class BaseSoC(SoCSDRAM):
         self.comb += platform.request("user_led", 0).eq(led_counter[26])
 
         # analyzer
-        #if not with_cpu:
-        #    analyzer_signals = [
-        #        self.ddrphy.dfi.p0,
-        #    ]
-        #    self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals, 1024)
+        if not with_cpu:
+            analyzer_signals = [
+                self.ddrphy.dfi.p0,
+                self.ddrphy.dq_i_data
+            ]
+            self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals, 128)
 
     def generate_sdram_phy_py_header(self):
         f = open("test/sdram_init.py", "w")

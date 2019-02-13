@@ -12,15 +12,21 @@ wb.open()
 
 # Tests---------------------------------------------------------------------------------------------
 sdram_initialization  = True
-sdram_read_training   = False
 sdram_write_training  = False
-sdram_vrefdq_training = True
+sdram_read_training   = True
 sdram_test            = False
 
 # Parameters----------------------------------------------------------------------------------------
 
 NBMODULES = 1
-NDELAYS   = 512
+NDELAYS   = 64
+
+# MPR
+MPR_PATTERN = 0b01010101
+
+# MR3
+MPR_SEL   = (0b00<<0)
+MPR_ENABLE = (1<<2)
 
 # Software helpers/models---------------------------------------------------------------------------
 
@@ -73,8 +79,6 @@ if sdram_initialization:
             wb.regs.sdram_dfii_pi0_command.write(cmd)
             wb.regs.sdram_dfii_pi0_command_issue.write(1)
 
-    ddram_disable_vtc()
-
     print("DQS taps: {}".format(wb.regs.ddrphy_half_sys8x_taps.read()))
 
 # DDRAM Write Training------------------------------------------------------------------------------
@@ -92,7 +96,6 @@ if sdram_write_training:
 
         def run(self):
             print("Write leveling...")
-            print("DQS taps: {}".format(wb.regs.ddrphy_wdly_dqs_taps.read()))
             ddram_reset_wdelays()
             self.enable()
             delays = [-1]*NBMODULES
@@ -159,51 +162,39 @@ if sdram_read_training:
     # DQ0:
     # p0 [-------1-------0]
     # p1 [-------3-------2]
-    # p2 [-------5-------4]
-    # p3 [-------7-------6]
 
     def command_prd(address, baddress, cmd):
+        wb.regs.sdram_dfii_pi0_address.write(address)
+        wb.regs.sdram_dfii_pi0_baddress.write(baddress)
+        wb.regs.sdram_dfii_pi0_command.write(cmd)
+        wb.regs.sdram_dfii_pi0_command_issue.write(1)
+
+    def command_pwr(address, baddress, cmd):
         wb.regs.sdram_dfii_pi1_address.write(address)
         wb.regs.sdram_dfii_pi1_baddress.write(baddress)
         wb.regs.sdram_dfii_pi1_command.write(cmd)
         wb.regs.sdram_dfii_pi1_command_issue.write(1)
 
-    def command_pwr(address, baddress, cmd):
-        wb.regs.sdram_dfii_pi3_address.write(address)
-        wb.regs.sdram_dfii_pi3_baddress.write(baddress)
-        wb.regs.sdram_dfii_pi3_command.write(cmd)
-        wb.regs.sdram_dfii_pi3_command_issue.write(1)
-
     class DDRAMReadLeveling:
-        def enable_mpr(self, mpr):
-            ddram_mr_write(3, MPR_READ_SERIAL | MPR_ENABLE | mpr)
+        def enable_mpr(self):
+            ddram_mr_write(3, MPR_SEL | MPR_ENABLE)
 
         def disable_mpr(self):
             ddram_mr_write(3, 0)
 
         def run(self):
             print("Read leveling...")
-            ddram_reset_rdelays()
-            ddram_reset_wdelays()
-            ddram_set_bitslip(1)
-            self.enable_mpr(MPR0_SEL)
+            #ddram_reset_rdelays()
+            #ddram_reset_wdelays()
+            ddram_set_bitslip(0)
+            self.enable_mpr()
             for i in range(NDELAYS):
                 print("delay: {} |".format(i), end="")
                 command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
                 p0 = wb.regs.sdram_dfii_pi0_rddata.read()
                 p1 = wb.regs.sdram_dfii_pi1_rddata.read()
-                p2 = wb.regs.sdram_dfii_pi2_rddata.read()
-                p3 = wb.regs.sdram_dfii_pi3_rddata.read()
                 for j in range(8):
                     dq = 0
-                    dq |= (p3 >> (8 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p3 >> (0 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p2 >> (8 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p2 >> (0 + j)) & 0b1
-                    dq <<= 1
                     dq |= (p1 >> (8 + j)) & 0b1
                     dq <<= 1
                     dq |= (p1 >> (0 + j)) & 0b1
