@@ -195,29 +195,17 @@ class ECP5DDRPHY(Module, AutoCSR):
                 o_DQSW=dqsw
             )
 
-            # debug
-            if i == 0:
-                self.dqsr90  = dqsr90
-                self.dqsw270 = dqsw270
-                self.dqsw    = dqsw
-                self.rdpntr  = rdpntr
-                self.wrpntr  = wrpntr
-
             # DQS and DM ---------------------------------------------------------------------------
-            dqs_preamble = Signal()
-            dqs_postamble = Signal()
-            dqs_serdes_pattern = Signal(8, reset=0b01010101)
+            dqs_serdes_pattern = Signal(8, reset=0b0101)
             self.comb += \
                 If(self._wlevel_en.storage,
                     If(self._wlevel_strobe.re,
-                        dqs_serdes_pattern.eq(0b00000001)
+                        dqs_serdes_pattern.eq(0b0001)
                     ).Else(
-                        dqs_serdes_pattern.eq(0b00000000)
+                        dqs_serdes_pattern.eq(0b0000)
                     )
-                ).Elif(dqs_preamble | dqs_postamble,
-                    dqs_serdes_pattern.eq(0b0000000)
-                ).Else(
-                    dqs_serdes_pattern.eq(0b01010101)
+                 ).Else(
+                    dqs_serdes_pattern.eq(0b0101)
                 )
 
             dm_data = Signal(8)
