@@ -19,7 +19,7 @@ sdram_test            = False
 # Parameters----------------------------------------------------------------------------------------
 
 NBMODULES = 1
-NDELAYS   = 8
+NDELAYS   = 128
 
 # MPR
 MPR_PATTERN = 0b01010101
@@ -49,11 +49,13 @@ def ddram_reset_wdelays():
         wb.regs.ddrphy_wdly_dqs_rst.write(1)
         for j in range(wb.regs.ddrphy_half_sys8x_taps.read()):
             wb.regs.ddrphy_wdly_dqs_inc.write(1)
+        wb.regs.ddrphy_dly_sel.write(0)
 
 def ddram_reset_rdelays():
     for i in range(NBMODULES):
         wb.regs.ddrphy_dly_sel.write(1<<i)
         wb.regs.ddrphy_rdly_dq_rst.write(1)
+        wb.regs.ddrphy_dly_sel.write(0)
 
 def ddram_set_bitslip(bitslip):
     for i in range(NBMODULES):
@@ -61,6 +63,7 @@ def ddram_set_bitslip(bitslip):
         wb.regs.ddrphy_rdly_dq_bitslip_rst.write(1)
         for i in range(bitslip):
             wb.regs.ddrphy_rdly_dq_bitslip.write(1)
+        wb.regs.ddrphy_dly_sel.write(0)
 
 
 # software control
@@ -189,7 +192,7 @@ if sdram_read_training:
             ddram_set_bitslip(0)
             self.enable_mpr()
             for i in range(NDELAYS):
-                for k in range(10):
+                for k in range(5):
                     print("delay: {} |".format(i), end="")
                     command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
                     p0 = wb.regs.sdram_dfii_pi0_rddata.read()
@@ -208,6 +211,7 @@ if sdram_read_training:
                 for i in range(NBMODULES):
                     wb.regs.ddrphy_dly_sel.write(1 << i)
                     wb.regs.ddrphy_rdly_dq_inc.write(1)
+                    wb.regs.ddrphy_dly_sel.write(0)
             self.disable_mpr()
 
     ddram_leveling = DDRAMReadLeveling()

@@ -196,7 +196,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 i_ECLK=ClockSignal("sys2x"),
                 i_RST=ResetSignal(),
                 i_DDRDEL=ddrdel,
-                i_PAUSE=~ddrdel_lock,
+                i_PAUSE=~ddrdel_lock | self._dly_sel.storage[i],
 
                 # Control
                 # Assert LOADNs to use DDRDEL control
@@ -208,11 +208,11 @@ class ECP5DDRPHY(Module, AutoCSR):
                 i_WRDIRECTION=1,
 
                 # Reads (generate shifted DQS clock for reads)
-                i_READ0=1,
-                i_READ1=1,
-                i_READCLKSEL0=readclksel[0],
-                i_READCLKSEL1=readclksel[1],
-                i_READCLKSEL2=readclksel[2],
+                i_READ0=~self._dly_sel.storage[i],
+                i_READ1=~self._dly_sel.storage[i],
+                i_READCLKSEL0=0,
+                i_READCLKSEL1=0,
+                i_READCLKSEL2=1,
                 i_DQSI=pads.dqs_p[i],
                 o_DQSR90=dqsr90,
                 o_RDPNTR0=rdpntr[0],
@@ -339,8 +339,8 @@ class ECP5DDRPHY(Module, AutoCSR):
                 self.specials += \
                     Instance("DELAYF",
                         i_A=pads.dq[j],
-                        i_LOADN=1,
-                        i_MOVE=0,
+                        i_LOADN=~(self._dly_sel.storage[i//8] & self._rdly_dq_rst.re),
+                        i_MOVE=self._dly_sel.storage[i//8] & self._rdly_dq_inc.re,
                         i_DIRECTION=0,
                         o_Z=dq_i_delay,
                         p_DEL_MODE="DQS_ALIGNED_X2"
