@@ -211,9 +211,9 @@ class ECP5DDRPHY(Module, AutoCSR):
                 # Reads (generate shifted DQS clock for reads)
                 i_READ0=dqs_read,
                 i_READ1=dqs_read,
-                i_READCLKSEL0=1,
-                i_READCLKSEL1=1,
-                i_READCLKSEL2=0,
+                i_READCLKSEL0=readclksel[0],
+                i_READCLKSEL1=readclksel[1],
+                i_READCLKSEL2=readclksel[2],
                 i_DQSI=pads.dqs_p[i],
                 o_DQSR90=dqsr90,
                 o_RDPNTR0=rdpntr[0],
@@ -340,8 +340,10 @@ class ECP5DDRPHY(Module, AutoCSR):
                 self.specials += \
                     Instance("DELAYF",
                         i_A=pads.dq[j],
-                        i_LOADN=~(self._dly_sel.storage[i//8] & self._rdly_dq_rst.re),
-                        i_MOVE=self._dly_sel.storage[i//8] & self._rdly_dq_inc.re,
+                        #i_LOADN=~(self._dly_sel.storage[i//8] & self._rdly_dq_rst.re),
+                        #i_MOVE=self._dly_sel.storage[i//8] & self._rdly_dq_inc.re,
+                        i_LOADN=1,
+                        i_MOVE=0,
                         i_DIRECTION=0,
                         o_Z=dq_i_delay,
                         p_DEL_MODE="DQS_ALIGNED_X2"
@@ -412,12 +414,7 @@ class ECP5DDRPHY(Module, AutoCSR):
             rddata_en = n_rddata_en
         self.sync += [phase.rddata_valid.eq(rddata_en | self._wlevel_en.storage)
             for phase in self.dfi.phases]
-        self.sync += \
-            If(rddata_ens != 0,
-                dqs_read.eq(1)
-            ).Else(
-                dqs_read.eq(0)
-            )
+        self.sync += dqs_read.eq(rddata_ens[3] | rddata_ens[4])
         oe = Signal()
         last_wrdata_en = Signal(cwl_sys_latency+3)
         wrphase = self.dfi.phases[self.settings.wrphase]
