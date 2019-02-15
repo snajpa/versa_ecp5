@@ -192,7 +192,7 @@ if sdram_read_training:
             ddram_set_bitslip(0)
             self.enable_mpr()
             for i in range(NDELAYS):
-                for k in range(5):
+                for k in range(7):
                     print("delay: {} |".format(i), end="")
                     command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
                     p0 = wb.regs.sdram_dfii_pi0_rddata.read()
@@ -208,8 +208,8 @@ if sdram_read_training:
                         dq |= (p0 >> (0 + j)) & 0b1
                         print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
                     print("")
-                for i in range(NBMODULES):
-                    wb.regs.ddrphy_dly_sel.write(1 << i)
+                for j in range(NBMODULES):
+                    wb.regs.ddrphy_dly_sel.write(1 << j)
                     wb.regs.ddrphy_rdly_dq_inc.write(1)
                     wb.regs.ddrphy_dly_sel.write(0)
             self.disable_mpr()

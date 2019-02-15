@@ -162,6 +162,7 @@ class ECP5DDRPHY(Module, AutoCSR):
         global_datavalid = Signal()
         ddrdel = Signal()
         ddrdel_lock = Signal()
+        dqs_read = Signal()
         self.specials += Instance("DDRDLLA",
             i_CLK=ClockSignal("sys2x"),
             i_RST=ResetSignal(),
@@ -196,7 +197,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 i_ECLK=ClockSignal("sys2x"),
                 i_RST=ResetSignal(),
                 i_DDRDEL=ddrdel,
-                i_PAUSE=~ddrdel_lock | self._dly_sel.storage[i],
+                i_PAUSE=~ddrdel_lock,
 
                 # Control
                 # Assert LOADNs to use DDRDEL control
@@ -208,11 +209,11 @@ class ECP5DDRPHY(Module, AutoCSR):
                 i_WRDIRECTION=1,
 
                 # Reads (generate shifted DQS clock for reads)
-                i_READ0=~self._dly_sel.storage[i],
-                i_READ1=~self._dly_sel.storage[i],
-                i_READCLKSEL0=0,
-                i_READCLKSEL1=0,
-                i_READCLKSEL2=1,
+                i_READ0=dqs_read,
+                i_READ1=dqs_read,
+                i_READCLKSEL0=1,
+                i_READCLKSEL1=1,
+                i_READCLKSEL2=0,
                 i_DQSI=pads.dqs_p[i],
                 o_DQSR90=dqsr90,
                 o_RDPNTR0=rdpntr[0],
@@ -403,13 +404,20 @@ class ECP5DDRPHY(Module, AutoCSR):
         #  cl_sys_latency cycles CAS
         #  M cycles through IDDRX2DQA FIXME
         rddata_en = self.dfi.phases[self.settings.rdphase].rddata_en
+        rddata_ens = Signal(self.settings.read_latency-1)
         for i in range(self.settings.read_latency-1):
             n_rddata_en = Signal()
             self.sync += n_rddata_en.eq(rddata_en)
+            self.comb += rddata_ens[i].eq(rddata_en)
             rddata_en = n_rddata_en
         self.sync += [phase.rddata_valid.eq(rddata_en | self._wlevel_en.storage)
             for phase in self.dfi.phases]
-
+        self.sync += \
+            If(rddata_ens != 0,
+                dqs_read.eq(1)
+            ).Else(
+                dqs_read.eq(0)
+            )
         oe = Signal()
         last_wrdata_en = Signal(cwl_sys_latency+3)
         wrphase = self.dfi.phases[self.settings.wrphase]
