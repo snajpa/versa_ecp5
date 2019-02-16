@@ -96,7 +96,7 @@ class BaseSoC(SoCSDRAM):
     def __init__(self, with_cpu=False, **kwargs):
         platform = versa_ecp5.Platform(toolchain="diamond")
         platform.add_extension(_ddram_io)
-        sys_clk_freq = int(100e6)
+        sys_clk_freq = int(50e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type="picorv32" if with_cpu else None, l2_size=32,
                           integrated_rom_size=0x8000 if with_cpu else 0,
@@ -117,7 +117,7 @@ class BaseSoC(SoCSDRAM):
         self.submodules.ddrphy = ecp5ddrphy.ECP5DDRPHY(
             platform.request("ddram"),
             sys_clk_freq=sys_clk_freq)
-        sdram_module = MT41K64M16(sys_clk_freq, "1:4")
+        sdram_module = MT41K64M16(sys_clk_freq, "1:2")
         self.register_sdram(self.ddrphy,
             sdram_module.geom_settings,
             sdram_module.timing_settings)

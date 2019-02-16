@@ -65,6 +65,9 @@ class ECP5DDRPHY(Module, AutoCSR):
         self._wdly_dqs_rst = CSR()
         self._wdly_dqs_inc = CSR()
 
+        self._burstdet_rst = CSR()
+        self._burstdet_count = CSRStatus(8)
+
         # PHY settings -----------------------------------------------------------------------------
         cl, cwl = get_cl_cw(memtype, tck)
         cl_sys_latency = get_sys_latency(nphases, cl)
@@ -83,7 +86,7 @@ class ECP5DDRPHY(Module, AutoCSR):
             wrcmdphase=wrcmdphase,
             cl=cl,
             cwl=cwl,
-            read_latency=2 + cl_sys_latency + 2 + log2_int(4//nphases) + 4, # FIXME
+            read_latency=2 + cl_sys_latency + 2 + log2_int(4//nphases) + 6, # FIXME
             write_latency=cwl_sys_latency
         )
 
@@ -242,6 +245,16 @@ class ECP5DDRPHY(Module, AutoCSR):
                 self.datavalid = datavalid
                 self.burstdet = burstdet
                 self.dqs_read = dqs_read
+                burstdet_d = Signal()
+                self.sync += burstdet_d.eq(burstdet)
+                self.sync += [
+                    If(self._burstdet_rst.re,
+                        self._burstdet_count.status.eq(0)
+                    ).Elif(burstdet != burstdet_d,
+                        self._burstdet_count.status.eq(self._burstdet_count.status + 1)
+                    )
+                ]
+
             # DQS and DM ---------------------------------------------------------------------------
             dqs_serdes_pattern = Signal(8, reset=0b0101)
             self.comb += \
@@ -342,22 +355,10 @@ class ECP5DDRPHY(Module, AutoCSR):
                         i_SCLK=ClockSignal(),
                         o_Q=dq_o
                     )
-                dq_i_delayed = Signal()
                 dq_i_data = Signal(4)
                 self.specials += \
-                    Instance("DELAYF",
-                        i_A=pads.dq[j],
-                        #i_LOADN=~(self._dly_sel.storage[i//8] & self._rdly_dq_rst.re),
-                        #i_MOVE=self._dly_sel.storage[i//8] & self._rdly_dq_inc.re,
-                        i_LOADN=1,
-                        i_MOVE=0,
-                        i_DIRECTION=0,
-                        o_Z=dq_i_delayed,
-                        p_DEL_MODE="DQS_ALIGNED_X2"
-                    )
-                self.specials += \
                     Instance("IDDRX2DQA",
-                        i_D=dq_i_delayed,
+                        i_D=pads.dq[j],
                         i_RST=ResetSignal(),
                         i_DQSR90=dqsr90,
                         i_SCLK=ClockSignal(),

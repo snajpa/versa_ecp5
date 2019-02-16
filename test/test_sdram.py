@@ -192,30 +192,31 @@ if sdram_read_training:
         def run(self):
             print("Read leveling...")
             ddram_reset_rdelays()
-            #ddram_reset_wdelays()
             ddram_set_bitslip(0)
             self.enable_mpr()
             for i in range(NDELAYS):
-                for k in range(7):
-                    print("delay: {} |".format(i), end="")
-                    command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
-                    p0 = wb.regs.sdram_dfii_pi0_rddata.read()
-                    p1 = wb.regs.sdram_dfii_pi1_rddata.read()
-                    for j in range(16):
-                        dq = 0
-                        dq |= (p1 >> (16 + j)) & 0b1
-                        dq <<= 1
-                        dq |= (p1 >> (0 + j)) & 0b1
-                        dq <<= 1
-                        dq |= (p0 >> (16 + j)) & 0b1
-                        dq <<= 1
-                        dq |= (p0 >> (0 + j)) & 0b1
-                        print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
-                    print("")
-                for j in range(N_BYTE_GROUPS):
-                    wb.regs.ddrphy_dly_sel.write(1 << j)
-                    wb.regs.ddrphy_rdly_dq_inc.write(1)
-                    wb.regs.ddrphy_dly_sel.write(0)
+                ddram_set_rdelay(i)
+                wb.regs.ddrphy_burstdet_rst.write(1)
+                print("delay: {} |".format(i), end="")
+                command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
+                p0 = wb.regs.sdram_dfii_pi0_rddata.read()
+                p1 = wb.regs.sdram_dfii_pi1_rddata.read()
+                for j in range(16):
+                    dq = 0
+                    dq |= (p1 >> (16 + j)) & 0b1
+                    dq <<= 1
+                    dq |= (p1 >> (0 + j)) & 0b1
+                    dq <<= 1
+                    dq |= (p0 >> (16 + j)) & 0b1
+                    dq <<= 1
+                    dq |= (p0 >> (0 + j)) & 0b1
+                    print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
+                print(" | burst_det : %d" %wb.regs.ddrphy_burstdet_found.read())
+
+            for j in range(N_BYTE_GROUPS):
+                wb.regs.ddrphy_dly_sel.write(1 << j)
+                wb.regs.ddrphy_rdly_dq_inc.write(1)
+                wb.regs.ddrphy_dly_sel.write(0)
             self.disable_mpr()
 
     ddram_leveling = DDRAMReadLeveling()
@@ -225,7 +226,7 @@ if sdram_read_training:
 
 if sdram_test:
 
-    ddram_set_rdelay(0x1A)
+    ddram_set_rdelay(31)
     ddram_set_bitslip(0)
 
     # hardware control
