@@ -390,12 +390,13 @@ class ECP5DDRPHY(Module, AutoCSR):
                         )
                     )
                 self.submodules += dq_bitslip
-                self.sync += dq_i_data_d.eq(dq_i_data)
+                dq_bitslip_o_d = Signal(4)
+                self.sync += dq_bitslip_o_d.eq(dq_bitslip.o)
                 self.comb += [
-                    self.dfi.phases[0].rddata[j].eq(dq_bitslip.o[0]),
-                    self.dfi.phases[0].rddata[databits+j].eq(dq_bitslip.o[1]),
-                    self.dfi.phases[1].rddata[j].eq(dq_bitslip.o[2]),
-                    self.dfi.phases[1].rddata[databits+j].eq(dq_bitslip.o[3])
+                    self.dfi.phases[0].rddata[0*databits+j].eq(dq_bitslip_o_d[3]), self.dfi.phases[0].rddata[1*databits+j].eq(dq_bitslip_o_d[2]),
+                    self.dfi.phases[0].rddata[2*databits+j].eq(dq_bitslip_o_d[1]), self.dfi.phases[0].rddata[3*databits+j].eq(dq_bitslip_o_d[0]),
+                    self.dfi.phases[1].rddata[0*databits+j].eq(dq_bitslip.o[3]), self.dfi.phases[1].rddata[1*databits+j].eq(dq_bitslip.o[2]),
+                    self.dfi.phases[1].rddata[2*databits+j].eq(dq_bitslip.o[1]), self.dfi.phases[1].rddata[3*databits+j].eq(dq_bitslip.o[0]),
                 ]
                 self.specials += \
                     Instance("TSHX2DQA",

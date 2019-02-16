@@ -13,8 +13,8 @@ wb.open()
 # Tests---------------------------------------------------------------------------------------------
 sdram_initialization  = True
 sdram_write_training  = False
-sdram_read_training   = True
-sdram_test            = False
+sdram_read_training   = False
+sdram_test            = True
 
 # Parameters----------------------------------------------------------------------------------------
 
@@ -65,6 +65,14 @@ def ddram_set_bitslip(bitslip):
             wb.regs.ddrphy_rdly_dq_bitslip.write(1)
         wb.regs.ddrphy_dly_sel.write(0)
 
+
+def ddram_set_rdelay(rdelay):
+    for i in range(NBMODULES):
+        wb.regs.ddrphy_dly_sel.write(1<<i)
+        wb.regs.ddrphy_rdly_dq_rst.write(1)
+        for i in range(rdelay):
+            wb.regs.ddrphy_rdly_dq_inc.write(1)
+        wb.regs.ddrphy_dly_sel.write(0)
 
 # software control
 ddram_software_control()
@@ -220,6 +228,8 @@ if sdram_read_training:
 # DDRAM Test----------------------------------------------------------------------------------------
 
 if sdram_test:
+
+    ddram_set_rdelay(0x1A)
 
     # hardware control
     ddram_hardware_control()
