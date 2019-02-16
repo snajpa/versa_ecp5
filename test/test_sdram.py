@@ -197,13 +197,13 @@ if sdram_read_training:
                     command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
                     p0 = wb.regs.sdram_dfii_pi0_rddata.read()
                     p1 = wb.regs.sdram_dfii_pi1_rddata.read()
-                    for j in range(8):
+                    for j in range(16):
                         dq = 0
-                        dq |= (p1 >> (8 + j)) & 0b1
+                        dq |= (p1 >> (16 + j)) & 0b1
                         dq <<= 1
                         dq |= (p1 >> (0 + j)) & 0b1
                         dq <<= 1
-                        dq |= (p0 >> (8 + j)) & 0b1
+                        dq |= (p0 >> (16 + j)) & 0b1
                         dq <<= 1
                         dq |= (p0 >> (0 + j)) & 0b1
                         print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
