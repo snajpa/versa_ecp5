@@ -10,7 +10,7 @@ wb.open()
 # # #
 
 analyzer = LiteScopeAnalyzerDriver(wb.regs, "analyzer", debug=True)
-analyzer.configure_trigger(cond={"dfi_p0_cas_n": 0})
+analyzer.configure_trigger(cond={"ecp5ddrphy_dfi_p0_rddata_valid": 1})
 analyzer.run(offset=32, length=128)
 analyzer.wait_done()
 analyzer.upload()
