@@ -342,11 +342,8 @@ class ECP5DDRPHY(Module, AutoCSR):
                         i_SCLK=ClockSignal(),
                         o_Q=dq_o
                     )
-                dq_i_data = Signal(8)
-                dq_i_data_d = Signal(8)
-
-                dq_i_delay = Signal()
-
+                dq_i_delayed = Signal()
+                dq_i_data = Signal(4)
                 self.specials += \
                     Instance("DELAYF",
                         i_A=pads.dq[j],
@@ -355,22 +352,22 @@ class ECP5DDRPHY(Module, AutoCSR):
                         i_LOADN=1,
                         i_MOVE=0,
                         i_DIRECTION=0,
-                        o_Z=dq_i_delay,
+                        o_Z=dq_i_delayed,
                         p_DEL_MODE="DQS_ALIGNED_X2"
                     )
                 self.specials += \
                     Instance("IDDRX2DQA",
-                        i_D=dq_i_delay,
+                        i_D=dq_i_delayed,
                         i_RST=ResetSignal(),
                         i_DQSR90=dqsr90,
                         i_SCLK=ClockSignal(),
                         i_ECLK=ClockSignal("sys2x"),
-                        i_RDPNTR0=rdpntr[0], # CHECKME: are RDPNTR/WRPTNR
-                        i_RDPNTR1=rdpntr[1], # behaving correctly when
-                        i_RDPNTR2=rdpntr[2], # READ_0/READCLKSEL signals
-                        i_WRPNTR0=wrpntr[0], # are not used. It should be
-                        i_WRPNTR1=wrpntr[1], # be the case but needs to be
-                        i_WRPNTR2=wrpntr[2], # verified.
+                        i_RDPNTR0=rdpntr[0],
+                        i_RDPNTR1=rdpntr[1],
+                        i_RDPNTR2=rdpntr[2],
+                        i_WRPNTR0=wrpntr[0],
+                        i_WRPNTR1=wrpntr[1],
+                        i_WRPNTR2=wrpntr[2],
                         o_Q0=dq_i_data[0],
                         o_Q1=dq_i_data[1],
                         o_Q2=dq_i_data[2],
