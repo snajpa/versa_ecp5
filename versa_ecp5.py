@@ -136,8 +136,12 @@ class BaseSoC(SoCSDRAM):
         if not with_cpu:
             analyzer_signals = [
                 self.ddrphy.dfi.p0,
-                self.ddrphy.dq_i_data
+                self.ddrphy.datavalid,
+                self.ddrphy.burstdet,
+                self.ddrphy.dqs_read,
+                self.ddrphy.readposition
             ]
+            analyzer_signals += [self.ddrphy.dq_i_data[i] for i in range(8)]
             self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals, 128)
 
     def generate_sdram_phy_py_header(self):
