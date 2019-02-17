@@ -278,7 +278,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 self.dfi.phases[1].wrdata_mask[2*databits//8+i], self.dfi.phases[1].wrdata_mask[3*databits//8+i]),
             )
             self.sync += dm_data_d.eq(dm_data)
-            self.comb += \
+            self.sync += \
                 If(bl8_sel,
                     dm_data_muxed.eq(dm_data_d[4:])
                 ).Else(
@@ -337,7 +337,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                     self.dfi.phases[1].wrdata[2*databits+j], self.dfi.phases[1].wrdata[3*databits+j])
                 )
                 self.sync += dq_data_d.eq(dq_data)
-                self.comb += \
+                self.sync += \
                     If(bl8_sel,
                         dq_data_muxed.eq(dq_data_d[4:])
                     ).Else(
@@ -356,9 +356,25 @@ class ECP5DDRPHY(Module, AutoCSR):
                         o_Q=dq_o
                     )
                 dq_i_data = Signal(4)
+
+
+                dq_i_delay = Signal()
+
+                self.specials += \
+                    Instance("DELAYF",
+                        i_A=pads.dq[j],
+                        #i_LOADN=~(self._dly_sel.storage[i//8] & self._rdly_dq_rst.re),
+                        #i_MOVE=self._dly_sel.storage[i//8] & self._rdly_dq_inc.re,
+                        i_LOADN=1,
+                        i_MOVE=0,
+                        i_DIRECTION=0,
+                        o_Z=dq_i_delay,
+                        p_DEL_MODE="DQS_ALIGNED_X2"
+                    )
+                
                 self.specials += \
                     Instance("IDDRX2DQA",
-                        i_D=pads.dq[j],
+                        i_D=dq_i_delay,
                         i_RST=ResetSignal(),
                         i_DQSR90=dqsr90,
                         i_SCLK=ClockSignal(),
