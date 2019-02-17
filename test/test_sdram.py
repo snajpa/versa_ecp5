@@ -211,7 +211,7 @@ if sdram_read_training:
                     dq <<= 1
                     dq |= (p0 >> (0 + j)) & 0b1
                     print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
-                print(" | burst_det : %d" %wb.regs.ddrphy_burstdet_found.read())
+                print(" | burst_det : %d" %wb.regs.ddrphy_burstdet_count.read())
 
             for j in range(N_BYTE_GROUPS):
                 wb.regs.ddrphy_dly_sel.write(1 << j)
@@ -226,8 +226,8 @@ if sdram_read_training:
 
 if sdram_test:
 
-    ddram_set_rdelay(31)
-    ddram_set_bitslip(0)
+    ddram_set_rdelay(25)
+    ddram_set_bitslip(1)
 
     # hardware control
     ddram_hardware_control()

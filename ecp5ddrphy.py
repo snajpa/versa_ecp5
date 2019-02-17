@@ -164,7 +164,6 @@ class ECP5DDRPHY(Module, AutoCSR):
         oe_dq = Signal()
         oe_dqs = Signal()
 
-
         global_datavalid = Signal()
         global_readposition = Signal(7)
         ddrdel = Signal()
@@ -407,10 +406,10 @@ class ECP5DDRPHY(Module, AutoCSR):
                 dq_bitslip_o_d = Signal(4)
                 self.sync += dq_bitslip_o_d.eq(dq_bitslip.o)
                 self.comb += [
-                    self.dfi.phases[0].rddata[0*databits+j].eq(dq_bitslip_o_d[3]), self.dfi.phases[0].rddata[1*databits+j].eq(dq_bitslip_o_d[2]),
-                    self.dfi.phases[0].rddata[2*databits+j].eq(dq_bitslip_o_d[1]), self.dfi.phases[0].rddata[3*databits+j].eq(dq_bitslip_o_d[0]),
-                    self.dfi.phases[1].rddata[0*databits+j].eq(dq_bitslip.o[3]), self.dfi.phases[1].rddata[1*databits+j].eq(dq_bitslip.o[2]),
-                    self.dfi.phases[1].rddata[2*databits+j].eq(dq_bitslip.o[1]), self.dfi.phases[1].rddata[3*databits+j].eq(dq_bitslip.o[0]),
+                    self.dfi.phases[0].rddata[0*databits+j].eq(dq_bitslip_o_d[0]), self.dfi.phases[0].rddata[1*databits+j].eq(dq_bitslip_o_d[1]),
+                    self.dfi.phases[0].rddata[2*databits+j].eq(dq_bitslip_o_d[2]), self.dfi.phases[0].rddata[3*databits+j].eq(dq_bitslip_o_d[3]),
+                    self.dfi.phases[1].rddata[0*databits+j].eq(dq_bitslip.o[0]), self.dfi.phases[1].rddata[1*databits+j].eq(dq_bitslip.o[1]),
+                    self.dfi.phases[1].rddata[2*databits+j].eq(dq_bitslip.o[2]), self.dfi.phases[1].rddata[3*databits+j].eq(dq_bitslip.o[3]),
                 ]
                 self.specials += \
                     Instance("TSHX2DQA",
@@ -455,5 +454,4 @@ class ECP5DDRPHY(Module, AutoCSR):
             ).Else(
                 oe_dqs.eq(oe), oe_dq.eq(oe)
             )
-
         self.sync += bl8_sel.eq(last_wrdata_en[cwl_sys_latency-1])
