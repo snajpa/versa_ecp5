@@ -173,7 +173,7 @@ class ECP5DDRPHY(Module, AutoCSR):
             i_CLK=ClockSignal("sys2x"),
             i_RST=ResetSignal(),
             i_UDDCNTLN=~self._rdly_dq_rst.re,
-            i_FREEZE=0,
+            i_FREEZE=ddrdel_lock,
             o_DDRDEL=ddrdel,
             o_LOCK=ddrdel_lock
         )
@@ -304,7 +304,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_D1=dqs_serdes_pattern[1],
                     i_D2=dqs_serdes_pattern[2],
                     i_D3=dqs_serdes_pattern[3],
-                    i_RST=ResetSignal(),
+                    i_RST=ResetSignal() | ~ddrdel_lock,
                     i_DQSW=dqsw,
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
@@ -317,7 +317,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_SCLK=ClockSignal(),
                     i_ECLK=ClockSignal("sys2x"),
                     i_DQSW=dqsw,
-                    i_RST=ResetSignal(),
+                    i_RST=ResetSignal() | ~ddrdel_lock,
                     o_Q=dqs_oe_n,
                 )
             self.specials += Tristate(pads.dqs_p[i], dqs, ~dqs_oe_n)
@@ -348,7 +348,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                         i_D1=dq_data_muxed[1],
                         i_D2=dq_data_muxed[2],
                         i_D3=dq_data_muxed[3],
-                        i_RST=ResetSignal(),
+                        i_RST=ResetSignal() | ~ddrdel_lock,
                         i_DQSW270=dqsw270,
                         i_ECLK=ClockSignal("sys2x"),
                         i_SCLK=ClockSignal(),
@@ -374,7 +374,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 self.specials += \
                     Instance("IDDRX2DQA",
                         i_D=dq_i_delay,
-                        i_RST=ResetSignal(),
+                        i_RST=ResetSignal() | ~ddrdel_lock,
                         i_DQSR90=dqsr90,
                         i_SCLK=ClockSignal(),
                         i_ECLK=ClockSignal("sys2x"),
@@ -418,7 +418,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                         i_SCLK=ClockSignal(),
                         i_ECLK=ClockSignal("sys2x"),
                         i_DQSW270=dqsw270,
-                        i_RST=ResetSignal(),
+                        i_RST=ResetSignal() | ~ddrdel_lock,
                         o_Q=dq_oe_n,
                     )
                 self.specials += Tristate(pads.dq[j], dq_o, ~dq_oe_n)
