@@ -13,7 +13,7 @@ wb.open()
 # Tests---------------------------------------------------------------------------------------------
 sdram_initialization  = True
 sdram_write_training  = False
-sdram_read_training   = False
+sdram_read_training   = True
 sdram_test            = True
 
 # Parameters----------------------------------------------------------------------------------------
@@ -196,22 +196,16 @@ if sdram_read_training:
             self.enable_mpr()
             for i in range(NDELAYS):
                 ddram_set_rdelay(i)
-                wb.regs.ddrphy_burstdet_rst.write(1)
+                burstdet_count = 0
                 print("delay: {} |".format(i), end="")
-                command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
-                p0 = wb.regs.sdram_dfii_pi0_rddata.read()
-                p1 = wb.regs.sdram_dfii_pi1_rddata.read()
-                for j in range(16):
-                    dq = 0
-                    dq |= (p1 >> (16 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p1 >> (0 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p0 >> (16 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p0 >> (0 + j)) & 0b1
-                    print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
-                print(" | burst_det : %d" %wb.regs.ddrphy_burstdet_count.read())
+                for j in range(2):
+                    wb.regs.ddrphy_burstdet_rst.write(1)
+                    command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
+                    burstdet_count += (wb.regs.ddrphy_burstdet_found.read() != 0)
+                print(" burst_det : %d" %burstdet_count)
+                if burstdet_count == 2:
+                    self.disable_mpr()
+                    return
 
             for j in range(N_BYTE_GROUPS):
                 wb.regs.ddrphy_dly_sel.write(1 << j)
@@ -225,9 +219,7 @@ if sdram_read_training:
 # DDRAM Test----------------------------------------------------------------------------------------
 
 if sdram_test:
-
-    ddram_set_rdelay(26)
-    ddram_set_bitslip(0)
+    ddram_set_bitslip(2)
 
     # hardware control
     ddram_hardware_control()
@@ -257,8 +249,8 @@ if sdram_test:
         return errors
 
     write_pattern(64)
-    check_pattern(64, debug=True)
-
+    errors = check_pattern(64, debug=True)
+    print("{} errors".format(errors))
 
 # # #
 
