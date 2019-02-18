@@ -226,8 +226,8 @@ if sdram_read_training:
 
 if sdram_test:
 
-    ddram_set_rdelay(25)
-    ddram_set_bitslip(1)
+    ddram_set_rdelay(26)
+    ddram_set_bitslip(0)
 
     # hardware control
     ddram_hardware_control()
@@ -258,6 +258,7 @@ if sdram_test:
 
     write_pattern(64)
     check_pattern(64, debug=True)
+
 
 # # #
 

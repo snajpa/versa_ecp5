@@ -163,6 +163,8 @@ class ECP5DDRPHY(Module, AutoCSR):
         # DQ ---------------------------------------------------------------------------------------
         oe_dq = Signal()
         oe_dqs = Signal()
+        postamble_dqs = Signal()
+        preamble_dqs = Signal()
 
         global_datavalid = Signal()
         global_readposition = Signal(7)
@@ -201,6 +203,10 @@ class ECP5DDRPHY(Module, AutoCSR):
             burstdet = Signal()
 
             self.specials += Instance("DQSBUFM",
+                p_DQS_LI_DEL_ADJ="MINUS",
+                p_DQS_LI_DEL_VAL=1,
+                p_DQS_LO_DEL_ADJ="MINUS",
+                p_DQS_LO_DEL_VAL=4,
                 # Clocks / Reset
                 i_SCLK=ClockSignal("sys"),
                 i_ECLK=ClockSignal("sys2x"),
@@ -255,7 +261,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 ]
 
             # DQS and DM ---------------------------------------------------------------------------
-            dqs_serdes_pattern = Signal(8, reset=0b0101)
+            dqs_serdes_pattern = Signal(8, reset=0b1010)
             self.comb += \
                 If(self._wlevel_en.storage,
                     If(self._wlevel_strobe.re,
@@ -264,7 +270,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                         dqs_serdes_pattern.eq(0b0000)
                     )
                  ).Else(
-                    dqs_serdes_pattern.eq(0b0101)
+                    dqs_serdes_pattern.eq(0b1010)
                 )
 
             dm_data = Signal(8)
@@ -289,7 +295,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                     i_D1=dm_data_muxed[1],
                     i_D2=dm_data_muxed[2],
                     i_D3=dm_data_muxed[3],
-                    i_RST=ResetSignal(),
+                    i_RST=ResetSignal() | ~ddrdel_lock,
                     i_DQSW270=dqsw270,
                     i_ECLK=ClockSignal("sys2x"),
                     i_SCLK=ClockSignal(),
@@ -312,8 +318,8 @@ class ECP5DDRPHY(Module, AutoCSR):
                 )
             self.specials += \
                 Instance("TSHX2DQSA",
-                    i_T0=~oe_dqs,
-                    i_T1=~oe_dqs,
+                    i_T0=~(oe_dqs|postamble_dqs),
+                    i_T1=~(oe_dqs|preamble_dqs),
                     i_SCLK=ClockSignal(),
                     i_ECLK=ClockSignal("sys2x"),
                     i_DQSW=dqsw,
@@ -455,3 +461,5 @@ class ECP5DDRPHY(Module, AutoCSR):
                 oe_dqs.eq(oe), oe_dq.eq(oe)
             )
         self.sync += bl8_sel.eq(last_wrdata_en[cwl_sys_latency-1])
+        self.sync += preamble_dqs.eq(last_wrdata_en[cwl_sys_latency-2])
+        self.sync += postamble_dqs.eq(oe_dqs)
