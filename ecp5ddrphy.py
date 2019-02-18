@@ -171,6 +171,7 @@ class ECP5DDRPHY(Module, AutoCSR):
         ddrdel = Signal()
         ddrdel_lock = Signal()
         dqs_read = Signal()
+
         self.specials += Instance("DDRDLLA",
             i_CLK=ClockSignal("sys2x"),
             i_RST=ResetSignal(),
@@ -212,7 +213,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                 i_ECLK=ClockSignal("sys2x"),
                 i_RST=ResetSignal(),
                 i_DDRDEL=ddrdel,
-                i_PAUSE=~ddrdel_lock,
+                i_PAUSE=~ddrdel_lock | self._dly_sel.storage[i],
 
                 # Control
                 # Assert LOADNs to use DDRDEL control
