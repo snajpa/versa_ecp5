@@ -66,7 +66,7 @@ class ECP5DDRPHY(Module, AutoCSR):
         self._wdly_dqs_inc = CSR()
 
         self._burstdet_rst = CSR()
-        self._burstdet_count = CSRStatus(8)
+        self._burstdet_found = CSRStatus()
 
         # PHY settings -----------------------------------------------------------------------------
         cl, cwl = get_cl_cw(memtype, tck)
@@ -255,9 +255,9 @@ class ECP5DDRPHY(Module, AutoCSR):
                 self.sync += burstdet_d.eq(burstdet)
                 self.sync += [
                     If(self._burstdet_rst.re,
-                        self._burstdet_count.status.eq(0)
-                    ).Elif(burstdet != burstdet_d,
-                        self._burstdet_count.status.eq(self._burstdet_count.status + 1)
+                        self._burstdet_found.status.eq(0)
+                    ).Elif(burstdet & ~burstdet_d,
+                        self._burstdet_found.status.eq(1)
                     )
                 ]
 
@@ -377,7 +377,7 @@ class ECP5DDRPHY(Module, AutoCSR):
                         o_Z=dq_i_delay,
                         p_DEL_MODE="DQS_ALIGNED_X2"
                     )
-                
+
                 self.specials += \
                     Instance("IDDRX2DQA",
                         i_D=dq_i_delay,
