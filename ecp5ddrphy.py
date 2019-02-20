@@ -7,6 +7,8 @@ from collections import OrderedDict
 from migen import *
 from migen.genlib.misc import BitSlip
 from migen.fhdl.specials import Tristate
+from migen.genlib.cdc import MultiReg
+from migen.genlib.misc import WaitTimer
 
 from litex.soc.interconnect.csr import *
 
@@ -36,8 +38,119 @@ def get_sys_phases(nphases, sys_latency, cas_latency):
 
 # Lattice ECP5 DDR PHY -----------------------------------------------------------------------------
 
+class ECP5DDRPHYInit(Module):
+    def __init__(self, crg, phy):
+        dll_lock = Signal()
+        dll_lock_sync = Signal()
+        uddcntl = Signal(reset=0b1)
+        stop = Signal()
+
+        freeze = Signal()
+        pause = Signal()
+        ddr_rst = Signal()
+
+        # Synchronise DDRDLL lock
+        self.specials += MultiReg(dll_lock, dll_lock_sync, "init")
+
+        # Reset & startup FSM
+        init_timer = WaitTimer(5)
+        self.submodules += init_timer
+        reset_ddr_done = Signal()
+        uddcntl_done = Signal()
+
+        fsm = ClockDomainsRenamer("init")(FSM(reset_state="WAIT_LOCK"))
+        self.submodules += fsm
+        fsm.act("WAIT_LOCK",
+            If(dll_lock_sync,
+                init_timer.wait.eq(1),
+                If(init_timer.done,
+                    init_timer.wait.eq(0),
+                    If(uddcntl_done,
+                        NextState("READY")
+                    ).Elif(reset_ddr_done,
+                        NextState("PAUSE")
+                    ).Else(
+                        NextState("FREEZE")
+                    )
+                )
+            )
+        )
+        fsm.act("FREEZE",
+            freeze.eq(1),
+            init_timer.wait.eq(1),
+            If(init_timer.done,
+                init_timer.wait.eq(0),
+                If(reset_ddr_done,
+                    NextState("WAIT_LOCK")
+                ).Else(
+                    NextState("STOP")
+                )
+            )
+        )
+        fsm.act("STOP",
+            stop.eq(1),
+            freeze.eq(1),
+            init_timer.wait.eq(1),
+            If(init_timer.done,
+                init_timer.wait.eq(0),
+                If(reset_ddr_done,
+                    NextState("FREEZE")
+                ).Else(
+                    NextState("RESET_DDR")
+                )
+            )
+        )
+        fsm.act("RESET_DDR",
+            stop.eq(1),
+            freeze.eq(1),
+            ddr_rst.eq(1),
+            init_timer.wait.eq(1),
+            If(init_timer.done,
+                init_timer.wait.eq(0),
+                NextValue(reset_ddr_done, 1),
+                NextState("STOP")
+            )
+        )
+        fsm.act("PAUSE",
+            pause.eq(1),
+            init_timer.wait.eq(1),
+            If(init_timer.done,
+                init_timer.wait.eq(0),
+                If(uddcntl_done,
+                    NextState("WAIT_LOCK")
+                ).Else(
+                    NextState("UDDCNTL")
+                )
+            )
+        )
+        fsm.act("UDDCNTL",
+            uddcntl.eq(1),
+            pause.eq(1),
+            init_timer.wait.eq(1),
+            If(init_timer.done,
+                init_timer.wait.eq(0),
+                NextValue(uddcntl_done, 1),
+                NextState("PAUSE")
+            )
+        )
+        fsm.act("READY")
+
+        self.comb += phy.pause.eq(pause)
+        self.comb += crg.stop.eq(stop)
+
+        self.specials += Instance("DDRDLLA",
+            i_CLK=ClockSignal("sys2x"), # CHECKME
+            i_RST=ResetSignal("init"),  # CHECKME
+            i_UDDCNTLN=~uddcntl,
+            i_FREEZE=freeze,
+            o_DDRDEL=phy.ddrdel,
+            o_LOCK=dll_lock
+        )
+        self.sync.init += ResetSignal("sys2x").eq(ddr_rst) # CHECKME
+
+
 class ECP5DDRPHY(Module, AutoCSR):
-    def __init__(self, pads, pause, ddrdel, sys_clk_freq=100e6):
+    def __init__(self, pads, sys_clk_freq=100e6):
         memtype = "DDR3"
         tck = 2/(2*2*sys_clk_freq)
         addressbits = len(pads.a)
@@ -45,6 +158,10 @@ class ECP5DDRPHY(Module, AutoCSR):
         nranks = 1 if not hasattr(pads, "cs_n") else len(pads.cs_n)
         databits = len(pads.dq)
         nphases = 2
+
+        # Init -------------------------------------------------------------------------------------
+        self.pause = Signal()
+        self.ddrdel = Signal()
 
         # Registers --------------------------------------------------------------------------------
 
@@ -201,8 +318,8 @@ class ECP5DDRPHY(Module, AutoCSR):
                 i_SCLK=ClockSignal("sys"),
                 i_ECLK=ClockSignal("sys2x"),
                 i_RST=ResetSignal("sys2x"),
-                i_DDRDEL=ddrdel,
-                i_PAUSE=pause | self._dly_sel.storage[i],
+                i_DDRDEL=self.ddrdel,
+                i_PAUSE=self.pause | self._dly_sel.storage[i],
 
                 # Control
                 # Assert LOADNs to use DDRDEL control
