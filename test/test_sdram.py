@@ -14,12 +14,12 @@ wb.open()
 sdram_initialization  = True
 sdram_write_training  = False
 sdram_read_training   = True
-sdram_test            = False
+sdram_test            = True
 
 # Parameters----------------------------------------------------------------------------------------
 
-NBMODULES = 1
-NDELAYS   = 64
+N_BYTE_GROUPS = 2
+NDELAYS       = 128
 
 # MPR
 MPR_PATTERN = 0b01010101
@@ -43,25 +43,32 @@ def ddram_mr_write(reg, value):
     wb.regs.sdram_dfii_pi0_command_issue.write(1)
 
 def ddram_reset_wdelays():
-    for i in range(NBMODULES):
+    for i in range(N_BYTE_GROUPS):
         wb.regs.ddrphy_dly_sel.write(1<<i)
-        # need to init manually on Ultrascale
         wb.regs.ddrphy_wdly_dqs_rst.write(1)
-        for j in range(wb.regs.ddrphy_half_sys8x_taps.read()):
-            wb.regs.ddrphy_wdly_dqs_inc.write(1)
 
 def ddram_reset_rdelays():
-    for i in range(NBMODULES):
+    for i in range(N_BYTE_GROUPS):
         wb.regs.ddrphy_dly_sel.write(1<<i)
         wb.regs.ddrphy_rdly_dq_rst.write(1)
+        wb.regs.ddrphy_dly_sel.write(0)
 
 def ddram_set_bitslip(bitslip):
-    for i in range(NBMODULES):
+    for i in range(N_BYTE_GROUPS):
         wb.regs.ddrphy_dly_sel.write(1<<i)
         wb.regs.ddrphy_rdly_dq_bitslip_rst.write(1)
         for i in range(bitslip):
             wb.regs.ddrphy_rdly_dq_bitslip.write(1)
+        wb.regs.ddrphy_dly_sel.write(0)
 
+
+def ddram_set_rdelay(rdelay):
+    for i in range(N_BYTE_GROUPS):
+        wb.regs.ddrphy_dly_sel.write(1<<i)
+        wb.regs.ddrphy_rdly_dq_rst.write(1)
+        for i in range(rdelay):
+            wb.regs.ddrphy_rdly_dq_inc.write(1)
+        wb.regs.ddrphy_dly_sel.write(0)
 
 # software control
 ddram_software_control()
@@ -98,8 +105,8 @@ if sdram_write_training:
             print("Write leveling...")
             ddram_reset_wdelays()
             self.enable()
-            delays = [-1]*NBMODULES
-            for i in range(NBMODULES):
+            delays = [-1]*N_BYTE_GROUPS
+            for i in range(N_BYTE_GROUPS):
                 print("m{}:".format(i), end="")
                 # scan taps
                 taps_scan = [0]*NDELAYS
@@ -184,29 +191,26 @@ if sdram_read_training:
 
         def run(self):
             print("Read leveling...")
-            #ddram_reset_rdelays()
-            #ddram_reset_wdelays()
+            ddram_reset_rdelays()
             ddram_set_bitslip(0)
             self.enable_mpr()
             for i in range(NDELAYS):
+                ddram_set_rdelay(i)
+                burstdet_count = 0
                 print("delay: {} |".format(i), end="")
-                command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
-                p0 = wb.regs.sdram_dfii_pi0_rddata.read()
-                p1 = wb.regs.sdram_dfii_pi1_rddata.read()
-                for j in range(8):
-                    dq = 0
-                    dq |= (p1 >> (8 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p1 >> (0 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p0 >> (8 + j)) & 0b1
-                    dq <<= 1
-                    dq |= (p0 >> (0 + j)) & 0b1
-                    print("dq{:d}: 0b{:08b}, ".format(j, dq), end="")
-                print("")
-                for i in range(NBMODULES):
-                    wb.regs.ddrphy_dly_sel.write(1 << i)
-                    wb.regs.ddrphy_rdly_dq_inc.write(1)
+                for j in range(2):
+                    wb.regs.ddrphy_burstdet_rst.write(1)
+                    command_prd(0, 0, dfii_command_cas|dfii_command_cs|dfii_command_rddata)
+                    burstdet_count += (wb.regs.ddrphy_burstdet_found.read() != 0)
+                print(" burst_det : %d" %burstdet_count)
+                if burstdet_count == 2:
+                    self.disable_mpr()
+                    return
+
+            for j in range(N_BYTE_GROUPS):
+                wb.regs.ddrphy_dly_sel.write(1 << j)
+                wb.regs.ddrphy_rdly_dq_inc.write(1)
+                wb.regs.ddrphy_dly_sel.write(0)
             self.disable_mpr()
 
     ddram_leveling = DDRAMReadLeveling()
@@ -215,11 +219,12 @@ if sdram_read_training:
 # DDRAM Test----------------------------------------------------------------------------------------
 
 if sdram_test:
+    ddram_set_bitslip(0)
 
     # hardware control
     ddram_hardware_control()
 
-    def seed_to_data(seed, random=False):
+    def seed_to_data(seed, random=True):
         if random:
             return (1664525*seed + 1013904223) & 0xffffffff
         else:
@@ -244,7 +249,8 @@ if sdram_test:
         return errors
 
     write_pattern(64)
-    check_pattern(64, debug=True)
+    errors = check_pattern(64, debug=True)
+    print("{} errors".format(errors))
 
 # # #
 
