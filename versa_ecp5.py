@@ -15,54 +15,10 @@ from litex.soc.cores.uart import UARTWishboneBridge
 
 from litescope import LiteScopeAnalyzer
 
+from litedram.modules import MT41K64M16
 from litedram.sdram_init import get_sdram_phy_py_header
 
 import ecp5ddrphy
-from litedram.modules import SDRAMModule, _TechnologyTimings, _SpeedgradeTimings
-
-_ddram_io = [
-    ("ddram", 0,
-        Subsignal("a", Pins(
-            "P2 C4 E5 F5 B3 F4 B5 E4",
-            "C5 E3 D5 B4 C3"),
-            IOStandard("SSTL135_I")),
-        Subsignal("ba", Pins("P5 N3 M3"), IOStandard("SSTL135_I")),
-        Subsignal("ras_n", Pins("P1"), IOStandard("SSTL135_I")),
-        Subsignal("cas_n", Pins("L1"), IOStandard("SSTL135_I")),
-        Subsignal("we_n", Pins("M1"), IOStandard("SSTL135_I")),
-        Subsignal("cs_n", Pins("K1"), IOStandard("SSTL135_I")),
-        Subsignal("dm", Pins("J4 H5"), IOStandard("SSTL135_I")),
-        Subsignal("dq", Pins(
-            "L5 F1 K4 G1 L4 H1 G2 J3",
-            "D1 C1 E2 C2 F3 A2 E1 B1"),
-            IOStandard("SSTL135_I"),
-            Misc("TERMINATION=75")),
-        Subsignal("dqs_p", Pins("K2 H4"), IOStandard("SSTL135D_I"), Misc("TERMINATION=OFF"), Misc("DIFFRESISTOR=100")),
-        Subsignal("dqs_n", Pins("J1 G5"), IOStandard("SSTL135D_I")),
-        Subsignal("clk_p", Pins("M4"), IOStandard("SSTL135D_I")),
-        Subsignal("clk_n", Pins("N5"), IOStandard("SSTL135D_I")),
-        Subsignal("cke", Pins("N2"), IOStandard("SSTL135_I")),
-        Subsignal("odt", Pins("L2"), IOStandard("SSTL135_I")),
-        Subsignal("reset_n", Pins("N4"), IOStandard("SSTL135_I")),
-        Misc("SLEWRATE=FAST"),
-    )
-]
-
-class MT41K64M16(SDRAMModule):
-    memtype = "DDR3"
-    # geometry
-    nbanks = 8
-    nrows  = 8192
-    ncols  = 1024
-    # timings
-    technology_timings = _TechnologyTimings(tREFI=64e6/8192, tWTR=(4, 7.5), tCCD=(4, None), tRRD=(4, 10))
-    speedgrade_timings = {
-        "800": _SpeedgradeTimings(tRP=13.1, tRCD=13.1, tWR=13.1, tRFC=64, tFAW=(None, 50), tRAS=37.5),
-        "1066": _SpeedgradeTimings(tRP=13.1, tRCD=13.1, tWR=13.1, tRFC=86, tFAW=(None, 50), tRAS=37.5),
-        "1333": _SpeedgradeTimings(tRP=13.5, tRCD=13.5, tWR=13.5, tRFC=107, tFAW=(None, 45), tRAS=36),
-        "1600": _SpeedgradeTimings(tRP=13.75, tRCD=13.75, tWR=13.75, tRFC=128, tFAW=(None, 40), tRAS=35),
-    }
-    speedgrade_timings["default"] = speedgrade_timings["1600"]
 
 
 class _CRG(Module):
@@ -124,7 +80,7 @@ class _CRG(Module):
                 NextValue(init_timer, 0)
             )
         )
-        fsm.act("FREEZE", 
+        fsm.act("FREEZE",
             uddcntln.eq(1), stop.eq(0), pause.eq(0),
             freeze.eq(1), ddr_rst.eq(0),
             If(init_timer == 3,
@@ -135,7 +91,7 @@ class _CRG(Module):
                 NextValue(init_timer, init_timer + 1)
             )
         )
-        fsm.act("STOP", 
+        fsm.act("STOP",
             uddcntln.eq(1), stop.eq(1), pause.eq(0),
             freeze.eq(1), ddr_rst.eq(0),
             If(init_timer == 3,
@@ -146,7 +102,7 @@ class _CRG(Module):
                 NextValue(init_timer, init_timer + 1)
             )
         )
-        fsm.act("RESET_DDR", 
+        fsm.act("RESET_DDR",
             uddcntln.eq(1), stop.eq(1), pause.eq(0),
             freeze.eq(1), ddr_rst.eq(1),
             If(init_timer == 3,
@@ -157,7 +113,7 @@ class _CRG(Module):
                 NextValue(init_timer, init_timer + 1)
             )
         )
-        fsm.act("PAUSE", 
+        fsm.act("PAUSE",
             uddcntln.eq(1), stop.eq(0), pause.eq(1),
             freeze.eq(0), ddr_rst.eq(0),
             If(init_timer == 3,
@@ -168,7 +124,7 @@ class _CRG(Module):
                 NextValue(init_timer, init_timer + 1)
             )
         )
-        fsm.act("UDDCNTLN", 
+        fsm.act("UDDCNTLN",
             uddcntln.eq(0), stop.eq(0), pause.eq(1),
             freeze.eq(0), ddr_rst.eq(0),
             If(init_timer == 3,
@@ -179,7 +135,7 @@ class _CRG(Module):
                 NextValue(init_timer, init_timer + 1)
             )
         )
-        fsm.act("READY", 
+        fsm.act("READY",
             uddcntln.eq(1), stop.eq(0), pause.eq(0),
             freeze.eq(0), ddr_rst.eq(0)
         )
@@ -205,7 +161,6 @@ class BaseSoC(SoCSDRAM):
     csr_map.update(SoCSDRAM.csr_map)
     def __init__(self, with_cpu=False, **kwargs):
         platform = versa_ecp5.Platform(toolchain="diamond")
-        platform.add_extension(_ddram_io)
         sys_clk_freq = int(50e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type="picorv32" if with_cpu else None, l2_size=32,
