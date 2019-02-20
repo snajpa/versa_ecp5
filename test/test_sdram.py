@@ -219,7 +219,7 @@ if sdram_read_training:
 # DDRAM Test----------------------------------------------------------------------------------------
 
 if sdram_test:
-    ddram_set_bitslip(2)
+    ddram_set_bitslip(0)
 
     # hardware control
     ddram_hardware_control()
