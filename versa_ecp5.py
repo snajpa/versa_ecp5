@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import argparse
 
 from migen import *
@@ -153,31 +154,29 @@ class _CRG(Module):
 
         self.sync.startclk += self.cd_sys2x.rst.eq(ddr_rst)
 
-class BaseSoC(SoCSDRAM):
+
+class DevSoC(SoCSDRAM):
     csr_map = {
         "ddrphy":    16,
         "analyzer":  17
     }
     csr_map.update(SoCSDRAM.csr_map)
-    def __init__(self, with_cpu=False, **kwargs):
+    def __init__(self):
         platform = versa_ecp5.Platform(toolchain="diamond")
         sys_clk_freq = int(50e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type="picorv32" if with_cpu else None, l2_size=32,
-                          integrated_rom_size=0x8000 if with_cpu else 0,
-                          with_uart=with_cpu,
-                          csr_data_width=8 if with_cpu else 32,
-                          ident="Versa ECP5 test SoC", ident_version=True,
-                          **kwargs)
+                          cpu_type=None, l2_size=32,
+                          with_uart=None,
+                          csr_data_width=32,
+                          ident="Versa ECP5 test SoC", ident_version=True)
 
         # crg
         crg = _CRG(platform, sys_clk_freq)
         self.submodules.crg = crg
 
         # uart
-        if not with_cpu:
-            self.submodules.bridge = UARTWishboneBridge(platform.request("serial"), sys_clk_freq, baudrate=115200)
-            self.add_wb_master(self.bridge.wishbone)
+        self.submodules.bridge = UARTWishboneBridge(platform.request("serial"), sys_clk_freq, baudrate=115200)
+        self.add_wb_master(self.bridge.wishbone)
 
         # sdram
         self.submodules.ddrphy = ecp5ddrphy.ECP5DDRPHY(
@@ -188,11 +187,6 @@ class BaseSoC(SoCSDRAM):
         self.register_sdram(self.ddrphy,
             sdram_module.geom_settings,
             sdram_module.timing_settings)
-        self.add_constant("MEMTEST_BUS_DEBUG", None)
-        self.add_constant("MEMTEST_DATA_SIZE", 1024)
-        self.add_constant("MEMTEST_DATA_DEBUG", None)
-        self.add_constant("MEMTEST_ADDR_SIZE", 1024)
-        self.add_constant("MEMTEST_ADDR_DEBUG", None)
 
         # led blinking
         led_counter = Signal(32)
@@ -200,16 +194,15 @@ class BaseSoC(SoCSDRAM):
         self.comb += platform.request("user_led", 0).eq(led_counter[26])
 
         # analyzer
-        if not with_cpu:
-            analyzer_signals = [
-                self.ddrphy.dfi.p0,
-                self.ddrphy.datavalid,
-                self.ddrphy.burstdet,
-                self.ddrphy.dqs_read,
-                self.ddrphy.readposition
-            ]
-            analyzer_signals += [self.ddrphy.dq_i_data[i] for i in range(8)]
-            self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals, 128)
+        analyzer_signals = [
+            self.ddrphy.dfi.p0,
+            self.ddrphy.datavalid,
+            self.ddrphy.burstdet,
+            self.ddrphy.dqs_read,
+            self.ddrphy.readposition
+        ]
+        analyzer_signals += [self.ddrphy.dq_i_data[i] for i in range(8)]
+        self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals, 128)
 
     def generate_sdram_phy_py_header(self):
         f = open("test/sdram_init.py", "w")
@@ -222,17 +215,46 @@ class BaseSoC(SoCSDRAM):
         if hasattr(self, "analyzer"):
             self.analyzer.export_csv(vns, "test/analyzer.csv")
 
-def main():
-    parser = argparse.ArgumentParser(description="LiteX SoC port to the Versa ECP5")
-    builder_args(parser)
-    soc_sdram_args(parser)
-    args = parser.parse_args()
 
-    soc = BaseSoC(**soc_sdram_argdict(args))
+class BaseSoC(SoCSDRAM):
+    csr_map = {
+        "ddrphy":    16,
+    }
+    csr_map.update(SoCSDRAM.csr_map)
+    def __init__(self):
+        platform = versa_ecp5.Platform(toolchain="diamond")
+        sys_clk_freq = int(50e6)
+        SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
+                          cpu_type="picorv32", l2_size=32,
+                          integrated_rom_size=0x8000)
+
+        # crg
+        crg = _CRG(platform, sys_clk_freq)
+        self.submodules.crg = crg
+
+        # sdram
+        self.submodules.ddrphy = ecp5ddrphy.ECP5DDRPHY(
+            platform.request("ddram"),
+            pause=crg.pause, ddrdel=crg.ddrdel,
+            sys_clk_freq=sys_clk_freq)
+        sdram_module = MT41K64M16(sys_clk_freq, "1:2")
+        self.register_sdram(self.ddrphy,
+            sdram_module.geom_settings,
+            sdram_module.timing_settings)
+
+        # led blinking
+        led_counter = Signal(32)
+        self.sync += led_counter.eq(led_counter + 1)
+        self.comb += platform.request("user_led", 0).eq(led_counter[26])
+
+
+def main():
+    soc = DevSoC() if "dev" in sys.argv[1:] else BaseSoC()
     builder = Builder(soc, output_dir="build", csr_csv="test/csr.csv")
     vns = builder.build(toolchain_path="/usr/local/diamond/3.10_x64/bin/lin64")
-    soc.do_exit(vns)
-    soc.generate_sdram_phy_py_header()
+    if isinstance(soc, DevSoC):
+        soc.do_exit(vns)
+        soc.generate_sdram_phy_py_header()
 
 
 if __name__ == "__main__":
