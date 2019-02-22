@@ -42,7 +42,7 @@ class ECP5DDRPHYInit(Module):
     def __init__(self, crg, phy):
         dll_lock = Signal()
         dll_lock_sync = Signal()
-        uddcntl = Signal(reset=0b1)
+        uddcntl = Signal(reset=0b0)
         stop = Signal()
 
         freeze = Signal()
@@ -53,7 +53,7 @@ class ECP5DDRPHYInit(Module):
         self.specials += MultiReg(dll_lock, dll_lock_sync, "init")
 
         # Reset & startup FSM
-        init_timer = WaitTimer(5)
+        init_timer = ClockDomainsRenamer("init")(WaitTimer(5))
         self.submodules += init_timer
         reset_ddr_done = Signal()
         uddcntl_done = Signal()
