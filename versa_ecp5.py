@@ -10,20 +10,25 @@ from litex.build.generic_platform import *
 from litex.boards.platforms import versa_ecp5
 
 from litex.soc.cores.clock import *
+from litex.soc.integration.soc_core import *
 from litex.soc.integration.soc_sdram import *
 from litex.soc.integration.builder import *
 from litex.soc.cores.uart import UARTWishboneBridge
 from litex.soc.interconnect import wishbone
 
-from litescope import LiteScopeAnalyzer
-
 from litedram.modules import MT41K64M16
 from litedram.sdram_init import get_sdram_phy_py_header
 
+from liteeth.common import *
+from liteeth.core import LiteEthUDPIPCore
+
+from litescope import LiteScopeAnalyzer
+
 import ecp5ddrphy
+import ecp5rgmii
 
 
-class _CRG(Module):
+class DDR3TestCRG(Module):
     def __init__(self, platform, sys_clk_freq):
         self.clock_domains.cd_init = ClockDomain()
         self.clock_domains.cd_por = ClockDomain(reset_less=True)
@@ -84,7 +89,7 @@ class DDR3TestSoC(SoCSDRAM):
                           ident="Versa ECP5 test SoC", ident_version=True)
 
         # crg
-        crg = _CRG(platform, sys_clk_freq)
+        crg = DDR3TestCRG(platform, sys_clk_freq)
         self.submodules.crg = crg
 
         # uart
@@ -121,6 +126,66 @@ class DDR3TestSoC(SoCSDRAM):
     def do_exit(self, vns):
         if hasattr(self, "analyzer"):
             self.analyzer.export_csv(vns, "test/analyzer.csv")
+
+
+class RGMIITestCRG(Module):
+    def __init__(self, platform, sys_clk_freq):
+        self.clock_domains.cd_por = ClockDomain(reset_less=True)
+        self.clock_domains.cd_sys = ClockDomain()
+        self.clock_domains.cd_sys_i = ClockDomain(reset_less=True)
+
+        # # #
+
+        # clk / rst
+        clk100 = platform.request("clk100")
+        rst_n = platform.request("rst_n")
+        platform.add_period_constraint(clk100, 10.0)
+
+        # power on reset
+        por_count = Signal(16, reset=2**16-1)
+        por_done = Signal()
+        self.comb += self.cd_por.clk.eq(ClockSignal())
+        self.comb += por_done.eq(por_count == 0)
+        self.sync.por += If(~por_done, por_count.eq(por_count - 1))
+
+        # pll
+        self.submodules.pll = pll = ECP5PLL()
+        pll.register_clkin(clk100, 100e6)
+        pll.create_clkout(self.cd_sys, sys_clk_freq)
+        self.specials += AsyncResetSynchronizer(self.cd_sys, ~por_done | ~pll.locked | ~rst_n)
+
+
+class RGMIITestSoC(SoCCore):
+    def __init__(self):
+        platform = versa_ecp5.Platform(toolchain="diamond")
+        sys_clk_freq = int(133e6)
+        SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
+                          cpu_type=None, with_uart=False,
+                          csr_data_width=32,
+                          ident="Versa ECP5 test SoC", ident_version=True)
+
+        # crg
+        self.submodules.crg = RGMIITestCRG(platform, sys_clk_freq)
+
+        # ethernet mac/udp/ip stack
+        ethphy = ecp5rgmii.LiteEthPHYRGMII(platform.request("eth_clocks"),
+                        platform.request("eth"))
+        ethcore = LiteEthUDPIPCore(ethphy,
+                                   mac_address=0x10e2d5000000,
+                                   ip_address=convert_ip("192.168.1.50"),
+                                   clk_freq=sys_clk_freq,
+                                   with_icmp=True)
+        self.submodules += ethphy, ethcore
+
+        ethphy.crg.cd_eth_rx.clk.attr.add("keep")
+        ethphy.crg.cd_eth_tx.clk.attr.add("keep")
+        platform.add_period_constraint(ethphy.crg.cd_eth_rx.clk, period_ns(125e6))
+        platform.add_period_constraint(ethphy.crg.cd_eth_tx.clk, period_ns(125e6))
+
+        # led blinking
+        led_counter = Signal(32)
+        self.sync += led_counter.eq(led_counter + 1)
+        self.comb += platform.request("user_led", 0).eq(led_counter[26])
 
 
 class BaseSoC(SoCSDRAM):
@@ -167,10 +232,12 @@ class BaseSoC(SoCSDRAM):
 def main():
     if "ddr3_test" in sys.argv[1:]:
         soc = DDR3TestSoC()
+    elif "rgmii_test" in sys.argv[1:]:
+        soc = RGMIITestSoC()
     elif "base" in sys.argv[1:]:
         soc = BaseSoC()
     else:
-        print("missing target, supported: (ddr3_test, base)")
+        print("missing target, supported: (ddr3_test, rgmii_test, base)")
         exit(1)
     builder = Builder(soc, output_dir="build", csr_csv="test/csr.csv")
     vns = builder.build(toolchain_path="/usr/local/diamond/3.10_x64/bin/lin64")
