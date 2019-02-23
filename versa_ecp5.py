@@ -205,7 +205,7 @@ class BaseSoC(SoCSDRAM):
                           integrated_rom_size=0x8000)
 
         # crg
-        crg = _CRG(platform, sys_clk_freq)
+        crg = DDR3TestCRG(platform, sys_clk_freq)
         self.submodules.crg = crg
 
         # firmware ram
