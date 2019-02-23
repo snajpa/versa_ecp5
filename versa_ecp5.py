@@ -13,6 +13,7 @@ from litex.soc.cores.clock import *
 from litex.soc.integration.soc_sdram import *
 from litex.soc.integration.builder import *
 from litex.soc.cores.uart import UARTWishboneBridge
+from litex.soc.interconnect import wishbone
 
 from litescope import LiteScopeAnalyzer
 
@@ -127,6 +128,10 @@ class BaseSoC(SoCSDRAM):
         "ddrphy":    16,
     }
     csr_map.update(SoCSDRAM.csr_map)
+    mem_map = {
+        "firmware_ram": 0x20000000,
+    }
+    mem_map.update(SoCSDRAM.mem_map)
     def __init__(self):
         platform = versa_ecp5.Platform(toolchain="diamond")
         sys_clk_freq = int(50e6)
@@ -137,6 +142,11 @@ class BaseSoC(SoCSDRAM):
         # crg
         crg = _CRG(platform, sys_clk_freq)
         self.submodules.crg = crg
+
+        # firmware ram
+        firmware_ram_size = 0x10000
+        self.submodules.firmware_ram = wishbone.SRAM(firmware_ram_size)
+        self.register_mem("firmware_ram", self.mem_map["firmware_ram"], self.firmware_ram.bus, firmware_ram_size)
 
         # sdram
         self.submodules.ddrphy = ecp5ddrphy.ECP5DDRPHY(
