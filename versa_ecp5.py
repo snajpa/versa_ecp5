@@ -109,13 +109,6 @@ class DevSoC(SoCSDRAM):
         analyzer_signals += [self.ddrphy.dq_i_data[i] for i in range(8)]
         self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals, 128)
 
-    def generate_sdram_phy_py_header(self):
-        f = open("test/sdram_init.py", "w")
-        f.write(get_sdram_phy_py_header(
-            self.sdram.controller.settings.phy,
-            self.sdram.controller.settings.timing))
-        f.close()
-
     def do_exit(self, vns):
         if hasattr(self, "analyzer"):
             self.analyzer.export_csv(vns, "test/analyzer.csv")
