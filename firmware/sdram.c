@@ -585,10 +585,10 @@ int sdrlevel(void)
 		ddrphy_rdly_dq_bitslip_rst_write(1);
 	}
 
-#ifdef CSR_DDRPHY_WLEVEL_EN_ADDR
-	if(!write_level())
-		return 0;
-#endif
+//#ifdef CSR_DDRPHY_WLEVEL_EN_ADDR
+//	if(!write_level())
+//		return 0;
+//#endif
 
 	printf("Read leveling:\n");
 	for(i=0; i<NBMODULES; i++) {
