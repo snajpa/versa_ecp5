@@ -88,6 +88,7 @@ static void write_delay_reset(int module) {
 	for(i=0; i<ddrphy_half_sys8x_taps_read(); i++)
 		ddrphy_wdly_dqs_inc_write(1);
 #endif
+	ddrphy_dly_sel_write(0);
 }
 
 static void write_delay_inc(int module) {
@@ -97,6 +98,8 @@ static void write_delay_inc(int module) {
 	/* inc delay */
 	ddrphy_wdly_dq_inc_write(1);
 	ddrphy_wdly_dqs_inc_write(1);
+
+	ddrphy_dly_sel_write(0);
 }
 
 int write_level(void)
@@ -212,6 +215,7 @@ static void read_bitslip_inc(char m)
 {
 		ddrphy_dly_sel_write(1 << m);
 		ddrphy_rdly_dq_bitslip_write(1);
+		ddrphy_dly_sel_write(0);
 }
 
 static int read_level_scan(int module, int bitslip)
@@ -250,6 +254,7 @@ static int read_level_scan(int module, int bitslip)
 	printf("m%d, b%d: |", module, bitslip);
 	ddrphy_dly_sel_write(1 << module);
 	ddrphy_rdly_dq_rst_write(1);
+	ddrphy_dly_sel_write(0);
 	for(j=0; j<ERR_DDRPHY_DELAY;j++) {
 		int working;
 		int show = 1;
@@ -269,6 +274,7 @@ static int read_level_scan(int module, int bitslip)
 			printf("%d", working);
 		score += working;
 		ddrphy_rdly_dq_inc_write(1);
+		ddrphy_dly_sel_write(0);
 	}
 	printf("| ");
 
@@ -318,7 +324,7 @@ static void read_level(int module)
 
 	ddrphy_dly_sel_write(1 << module);
 	delay = 0;
-
+	ddrphy_dly_sel_write(0);
 	/* Find smallest working delay */
 	ddrphy_rdly_dq_rst_write(1);
 	while(1) {
@@ -336,7 +342,9 @@ static void read_level(int module)
 		delay++;
 		if(delay >= ERR_DDRPHY_DELAY)
 			break;
+		ddrphy_dly_sel_write(1 << module);
 		ddrphy_rdly_dq_inc_write(1);
+		ddrphy_dly_sel_write(0);
 	}
 	delay_min = delay;
 
@@ -579,6 +587,7 @@ int sdrlevel(void)
 		ddrphy_dly_sel_write(1<<i);
 		ddrphy_rdly_dq_rst_write(1);
 		ddrphy_rdly_dq_bitslip_rst_write(1);
+		ddrphy_dly_sel_write(0);
 	}
 
 	printf("Read leveling:\n");
@@ -588,7 +597,7 @@ int sdrlevel(void)
 	ddrphy_rdly_dq_rst_write(1);
 	ddrphy_dly_sel_write(2);
 	ddrphy_rdly_dq_rst_write(1);
-
+	ddrphy_dly_sel_write(0);
 	/* Activate */
 	sdram_dfii_pi0_address_write(0);
 	sdram_dfii_pi0_baddress_write(0);
@@ -615,6 +624,7 @@ int sdrlevel(void)
 		ddrphy_rdly_dq_inc_write(1);
 		ddrphy_dly_sel_write(2);
 		ddrphy_rdly_dq_inc_write(1);
+		ddrphy_dly_sel_write(0);
 	}
 
 	/* Precharge */
@@ -684,6 +694,7 @@ void sdrdiag(void)
 		ddrphy_dly_sel_write(1<<module);
 		ddrphy_rdly_dq_rst_write(1);
 		ddrphy_rdly_dq_bitslip_rst_write(1);
+		ddrphy_dly_sel_write(0);
 	}
 
 	/* software control */
