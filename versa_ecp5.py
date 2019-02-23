@@ -68,7 +68,7 @@ class _CRG(Module):
         ]
 
 
-class DevSoC(SoCSDRAM):
+class DDR3TestSoC(SoCSDRAM):
     csr_map = {
         "ddrphy":    16,
         "analyzer":  17
@@ -170,13 +170,18 @@ class BaseSoC(SoCSDRAM):
         self.comb += platform.request("user_led", 0).eq(led_counter[26])
 
 def main():
-    soc = DevSoC() if "dev" in sys.argv[1:] else BaseSoC()
+    if "ddr3_test" in sys.argv[1:]:
+        soc = DDR3TestSoC()
+    elif "base" in sys.argv[1:]:
+        soc = BaseSoC()
+    else:
+        print("missing target, supported: (ddr3_test, base)")
+        exit(1)
     builder = Builder(soc, output_dir="build", csr_csv="test/csr.csv")
     vns = builder.build(toolchain_path="/usr/local/diamond/3.10_x64/bin/lin64")
-    if isinstance(soc, DevSoC):
+    if isinstance(soc, DDR3TestSoC):
         soc.do_exit(vns)
         soc.generate_sdram_phy_py_header()
-
 
 if __name__ == "__main__":
     main()
