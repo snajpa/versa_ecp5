@@ -80,6 +80,7 @@ static void help(void)
 	puts("debug:");
 	puts("phy_diag                        - diagnose SDRAM");
 	puts("phy_reset                       - reset SDRAM PHY");
+	puts("phy_bitslip                     - read bitslip");
 	puts("");
 }
 
@@ -113,6 +114,15 @@ static void phy_reset(void)
 	}
 }
 
+static void phy_bitslip(void)
+{
+	printf("Read bitslip.\n");
+	ddrphy_dly_sel_write(1<<0);
+	ddrphy_rdly_dq_bitslip_write(1);
+	ddrphy_dly_sel_write(1<<1);
+	ddrphy_rdly_dq_bitslip_write(1);
+}
+
 static void console_service(void)
 {
 	char *str;
@@ -133,6 +143,8 @@ static void console_service(void)
 		sdrdiag();
 	else if(strcmp(token, "phy_reset") == 0)
 		phy_reset();
+	else if(strcmp(token, "phy_bitslip") == 0)
+		phy_bitslip();
 	prompt();
 }
 
