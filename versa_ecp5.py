@@ -25,6 +25,7 @@ import ecp5ddrphy
 class _CRG(Module):
     def __init__(self, platform, sys_clk_freq):
         self.clock_domains.cd_init = ClockDomain()
+        self.clock_domains.cd_por = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys2x = ClockDomain()
         self.clock_domains.cd_sys2x_i = ClockDomain(reset_less=True)
@@ -37,6 +38,13 @@ class _CRG(Module):
         clk100 = platform.request("clk100")
         rst_n = platform.request("rst_n")
         platform.add_period_constraint(clk100, 10.0)
+
+        # power on reset
+        por_count = Signal(16, reset=2**16-1)
+        por_done = Signal()
+        self.comb += self.cd_por.clk.eq(ClockSignal())
+        self.comb += por_done.eq(por_count == 0)
+        self.sync.por += If(~por_done, por_count.eq(por_count - 1))
 
         # pll
         self.submodules.pll = pll = ECP5PLL()
@@ -54,8 +62,8 @@ class _CRG(Module):
                 i_CLKI=self.cd_sys2x.clk,
                 i_RST=self.cd_sys2x.rst,
                 o_CDIVX=self.cd_sys.clk),
-            AsyncResetSynchronizer(self.cd_init, ~pll.locked | ~rst_n),
-            AsyncResetSynchronizer(self.cd_sys, ~pll.locked | ~rst_n)
+            AsyncResetSynchronizer(self.cd_init, ~por_done | ~pll.locked | ~rst_n),
+            AsyncResetSynchronizer(self.cd_sys, ~por_done | ~pll.locked | ~rst_n)
         ]
 
 
