@@ -111,7 +111,7 @@ class LiteEthPHYRGMIIRX(Module):
         self.comb += last.eq(~rx_ctl_reg & rx_ctl_reg_d)
         self.sync += [
             source.valid.eq(rx_ctl_reg),
-            source.data.eq(Cat(rx_data_reg[:4], rx_data[4:]))
+            source.data.eq(Cat(rx_data_reg[:4], rx_data_reg[4:]))
         ]
         self.comb += source.last.eq(last)
 
@@ -130,6 +130,17 @@ class LiteEthPHYRGMIICRG(Module, AutoCSR):
         # RX
         eth_rx_clk_ibuf = Signal()
         self.comb += self.cd_eth_rx.clk.eq(clock_pads.rx)
+        self.specials += [
+            Instance("DELAYF",
+                p_DEL_MODE="USER_DEFINED",
+                p_DEL_VALUE=60, # FIXME: adjust
+                i_A=clock_pads.rx,
+                i_LOADN=1,
+                i_MOVE=0,
+                i_DIRECTION=0,
+                o_Z=eth_rx_clk_ibuf)
+        ]
+
 
         # TX
         eth_tx_clk_o = Signal()
