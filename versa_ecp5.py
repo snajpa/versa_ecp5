@@ -156,7 +156,7 @@ class RGMIITestCRG(Module):
 
 
 class RGMIITestSoC(SoCCore):
-    def __init__(self):
+    def __init__(self, eth_port=0):
         platform = versa_ecp5.Platform(toolchain="diamond")
         sys_clk_freq = int(133e6)
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
@@ -168,8 +168,8 @@ class RGMIITestSoC(SoCCore):
         self.submodules.crg = RGMIITestCRG(platform, sys_clk_freq)
 
         # ethernet mac/udp/ip stack
-        ethphy = ecp5rgmii.LiteEthPHYRGMII(platform.request("eth_clocks"),
-                        platform.request("eth"))
+        ethphy = ecp5rgmii.LiteEthPHYRGMII(platform.request("eth_clocks", eth_port),
+                        platform.request("eth", eth_port))
         ethcore = LiteEthUDPIPCore(ethphy,
                                    mac_address=0x10e2d5000000,
                                    ip_address=convert_ip("192.168.1.50"),
