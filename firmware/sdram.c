@@ -192,16 +192,13 @@ int write_level(void)
 				}
 			}
 		}
-		if (sdrwl_delays[i] >= 0)
-			delays[i] = sdrwl_delays[i];
-		else
-			delays[i] = one_window_best_start;
+		delays[i] = one_window_best_start;
 
 		/* configure write delay */
 		write_delay_rst(i);
 		for(j=0; j<delays[i]; j++)
 			write_delay_inc(i);
-		printf(" delay%c: %02d\n", (sdrwl_delays[i] >= 0) ? '*' : ' ', delays[i]);
+		printf(" delay: %02d\n", delays[i]);
 	}
 
 	sdrwloff();
