@@ -51,11 +51,11 @@ void sdrhw(void)
 #ifdef USDDRPHY
 #define ERR_DDRPHY_DELAY 512
 #else
-#define ERR_DDRPHY_DELAY 32
+#define ERR_DDRPHY_DELAY 8
 #endif
-#define ERR_DDRPHY_BITSLIP 8
+#define ERR_DDRPHY_BITSLIP 4
 
-#define NBMODULES DFII_PIX_DATA_SIZE/2
+#define NBMODULES DFII_PIX_DATA_SIZE/4
 
 #ifdef CSR_DDRPHY_WLEVEL_EN_ADDR
 
@@ -615,49 +615,58 @@ int memtest(void)
 #ifdef CSR_DDRPHY_BASE
 int sdrlevel(void)
 {
-	int i, j;
+	int module;
+	int bitslip;
+	int score;
+	int best_score;
+	int best_bitslip;
 
 	sdrsw();
 
-	printf("Read leveling:\n");
-
-	/* reset delay */
-    read_delay_rst(0);
-	read_bitslip_rst(0);
-	read_delay_rst(1);
-	read_bitslip_rst(1);
-
-	/* Activate */
-	sdram_dfii_pi0_address_write(0);
-	sdram_dfii_pi0_baddress_write(0);
-	command_p0(DFII_COMMAND_RAS|DFII_COMMAND_CS);
-	cdelay(15);
-
-	/* Find Read delay */
-	for(i=0; i<128; i++) {
-		unsigned int burstdet_count;
-		printf("delay %d | ", i);
-		burstdet_count = 0;
-		for (j=0; j<2; j++) {
-			ddrphy_burstdet_rst_write(1);
-			command_prd(DFII_COMMAND_CAS|DFII_COMMAND_CS|DFII_COMMAND_RDDATA);
-			cdelay(100);
-			burstdet_count += (ddrphy_burstdet_found_read() != 0);
-		}
-		printf(" burstdet_count : %d\n", burstdet_count);
-		if (burstdet_count == 2)
-			break;
-
-		/* Inc delay */
-		read_delay_inc(0);
-		read_delay_inc(1);
+	for(module=0; module<NBMODULES; module++) {
+#ifdef CSR_DDRPHY_WLEVEL_EN_ADDR
+		write_delay_rst(module);
+#endif
+		read_delay_rst(module);
+		read_bitslip_rst(module);
 	}
 
-	/* Precharge */
-	sdram_dfii_pi0_address_write(0);
-	sdram_dfii_pi0_baddress_write(0);
-	command_p0(DFII_COMMAND_RAS|DFII_COMMAND_WE|DFII_COMMAND_CS);
-	cdelay(15);
+#ifdef CSR_DDRPHY_WLEVEL_EN_ADDR
+	if(!write_level())
+		return 0;
+#endif
+
+	printf("Read leveling:\n");
+	for(module=0; module<NBMODULES; module++) {
+		/* scan possible read windows */
+		best_score = 0;
+		best_bitslip = 0;
+		for(bitslip=0; bitslip<ERR_DDRPHY_BITSLIP; bitslip++) {
+			/* compute score */
+			score = read_level_scan(module, bitslip);
+			read_level(module);
+			printf("\n");
+			if (score > best_score) {
+				best_bitslip = bitslip;
+				best_score = score;
+			}
+			/* exit */
+			if (bitslip == ERR_DDRPHY_BITSLIP-1)
+				break;
+			/* increment bitslip */
+			read_bitslip_inc(module);
+		}
+
+		/* select best read window */
+		printf("best: m%d, b%d ", module, best_bitslip);
+		read_bitslip_rst(module);
+		for (bitslip=0; bitslip<best_bitslip; bitslip++)
+			read_bitslip_inc(module);
+
+		/* re-do leveling on best read window*/
+		read_level(module);
+		printf("\n");
+	}
 
 	return 1;
 }
