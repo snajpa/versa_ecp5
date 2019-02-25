@@ -27,6 +27,7 @@ from liteeth.core import LiteEthUDPIPCore
 
 from litescope import LiteScopeAnalyzer
 
+# DDR3TestCRG --------------------------------------------------------------------------------------
 
 class DDR3TestCRG(Module):
     def __init__(self, platform, sys_clk_freq):
@@ -72,6 +73,7 @@ class DDR3TestCRG(Module):
             AsyncResetSynchronizer(self.cd_sys, ~por_done | ~pll.locked | ~rst_n)
         ]
 
+# DDR3TestSoC --------------------------------------------------------------------------------------
 
 class DDR3TestSoC(SoCSDRAM):
     csr_map = {
@@ -131,6 +133,7 @@ class DDR3TestSoC(SoCSDRAM):
         if hasattr(self, "analyzer"):
             self.analyzer.export_csv(vns, "test/analyzer.csv")
 
+# RGMIITestCRG -------------------------------------------------------------------------------------
 
 class RGMIITestCRG(Module):
     def __init__(self, platform, sys_clk_freq):
@@ -158,6 +161,7 @@ class RGMIITestCRG(Module):
         pll.create_clkout(self.cd_sys, sys_clk_freq)
         self.specials += AsyncResetSynchronizer(self.cd_sys, ~por_done | ~pll.locked | ~rst_n)
 
+# RGMIITestSoC -------------------------------------------------------------------------------------
 
 class RGMIITestSoC(SoCCore):
     def __init__(self, eth_port=0):
@@ -191,6 +195,7 @@ class RGMIITestSoC(SoCCore):
         self.sync += led_counter.eq(led_counter + 1)
         self.comb += platform.request("user_led", 0).eq(led_counter[26])
 
+# BaseSoC ------------------------------------------------------------------------------------------
 
 class BaseSoC(SoCSDRAM):
     csr_map = {
@@ -234,6 +239,7 @@ class BaseSoC(SoCSDRAM):
         self.sync += led_counter.eq(led_counter + 1)
         self.comb += platform.request("user_led", 0).eq(led_counter[26])
 
+# EthernetSoC --------------------------------------------------------------------------------------
 
 class EthernetSoC(BaseSoC):
     csr_map = {
@@ -266,9 +272,10 @@ class EthernetSoC(BaseSoC):
 
         self.ethphy.crg.cd_eth_rx.clk.attr.add("keep")
         self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
-        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, period_ns(125e6))
-        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, period_ns(125e6))
+        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, 1e9/125e6)
+        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, 1e9/125e6)
 
+# Build --------------------------------------------------------------------------------------------
 
 def main():
     if "ddr3_test" in sys.argv[1:]:
