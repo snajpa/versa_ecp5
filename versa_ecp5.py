@@ -17,16 +17,15 @@ from litex.soc.cores.uart import UARTWishboneBridge
 from litex.soc.interconnect import wishbone
 
 from litedram.modules import MT41K64M16
+from litedram.phy import ECP5DDRPHY, ECP5DDRPHYInit
 from litedram.sdram_init import get_sdram_phy_py_header
 
 from liteeth.common import *
+from liteeth.phy.ecp5rgmii import LiteEthPHYRGMII
 from liteeth.core.mac import LiteEthMAC
 from liteeth.core import LiteEthUDPIPCore
 
 from litescope import LiteScopeAnalyzer
-
-from litedram.phy import ECP5DDRPHY, ECP5DDRPHYInit
-import ecp5rgmii
 
 
 class DDR3TestCRG(Module):
@@ -173,7 +172,7 @@ class RGMIITestSoC(SoCCore):
         self.submodules.crg = RGMIITestCRG(platform, sys_clk_freq)
 
         # ethernet mac/udp/ip stack
-        ethphy = ecp5rgmii.LiteEthPHYRGMII(platform.request("eth_clocks", eth_port),
+        ethphy = LiteEthPHYRGMII(platform.request("eth_clocks", eth_port),
                         platform.request("eth", eth_port))
         ethcore = LiteEthUDPIPCore(ethphy,
                                    mac_address=0x10e2d5000000,
@@ -257,7 +256,7 @@ class EthernetSoC(BaseSoC):
         BaseSoC.__init__(self, **kwargs)
 
         # ethernet mac
-        self.submodules.ethphy = ecp5rgmii.LiteEthPHYRGMII(
+        self.submodules.ethphy = LiteEthPHYRGMII(
             self.platform.request("eth_clocks"),
             self.platform.request("eth"))
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32,
