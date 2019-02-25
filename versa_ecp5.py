@@ -25,7 +25,7 @@ from liteeth.core import LiteEthUDPIPCore
 
 from litescope import LiteScopeAnalyzer
 
-import ecp5ddrphy
+from litedram.phy import ECP5DDRPHY, ECP5DDRPHYInit
 import ecp5rgmii
 
 
@@ -98,10 +98,10 @@ class DDR3TestSoC(SoCSDRAM):
         self.add_wb_master(self.bridge.wishbone)
 
         # sdram
-        self.submodules.ddrphy = ecp5ddrphy.ECP5DDRPHY(
+        self.submodules.ddrphy = ECP5DDRPHY(
             platform.request("ddram"),
             sys_clk_freq=sys_clk_freq)
-        ddrphy_init = ecp5ddrphy.ECP5DDRPHYInit(self.crg, self.ddrphy)
+        ddrphy_init = ECP5DDRPHYInit(self.crg, self.ddrphy)
         self.submodules += ddrphy_init
         sdram_module = MT41K64M16(sys_clk_freq, "1:2")
         self.register_sdram(self.ddrphy,
@@ -219,11 +219,11 @@ class BaseSoC(SoCSDRAM):
         self.register_mem("firmware_ram", self.mem_map["firmware_ram"], self.firmware_ram.bus, firmware_ram_size)
 
         # sdram
-        self.submodules.ddrphy = ecp5ddrphy.ECP5DDRPHY(
+        self.submodules.ddrphy = ECP5DDRPHY(
             platform.request("ddram"),
             sys_clk_freq=sys_clk_freq)
         self.add_constant("ECP5DDRPHY", None)
-        ddrphy_init = ecp5ddrphy.ECP5DDRPHYInit(self.crg, self.ddrphy)
+        ddrphy_init = ECP5DDRPHYInit(self.crg, self.ddrphy)
         self.submodules += ddrphy_init
         sdram_module = MT41K64M16(sys_clk_freq, "1:2")
         self.register_sdram(self.ddrphy,
