@@ -202,37 +202,33 @@ class BaseSoC(SoCSDRAM):
         "ddrphy":    16,
     }
     csr_map.update(SoCSDRAM.csr_map)
-    mem_map = {
-        "firmware_ram": 0x20000000,
-    }
-    mem_map.update(SoCSDRAM.mem_map)
-    def __init__(self, toolchain="diamond"):
+    def __init__(self, toolchain="diamond", **kwargs):
         platform = versa_ecp5.Platform(toolchain=toolchain)
-        sys_clk_freq = int(50e6)
+        sys_clk_freq = int(75e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type="picorv32", l2_size=32,
-                          integrated_rom_size=0x8000)
+                          cpu_type="vexriscv", cpu_variant="min",
+                          integrated_rom_size=0x8000,
+                          **kwargs)
 
         # crg
-        crg = DDR3TestCRG(platform, sys_clk_freq)
+        if not self.integrated_main_ram_size:
+            crg = DDR3TestCRG(platform, sys_clk_freq)
+        else:
+            crg = RGMIITestCRG(platform, sys_clk_freq)
         self.submodules.crg = crg
 
-        # firmware ram
-        firmware_ram_size = 0x10000
-        self.submodules.firmware_ram = wishbone.SRAM(firmware_ram_size)
-        self.register_mem("firmware_ram", self.mem_map["firmware_ram"], self.firmware_ram.bus, firmware_ram_size)
-
         # sdram
-        self.submodules.ddrphy = ECP5DDRPHY(
-            platform.request("ddram"),
-            sys_clk_freq=sys_clk_freq)
-        self.add_constant("ECP5DDRPHY", None)
-        ddrphy_init = ECP5DDRPHYInit(self.crg, self.ddrphy)
-        self.submodules += ddrphy_init
-        sdram_module = MT41K64M16(sys_clk_freq, "1:2")
-        self.register_sdram(self.ddrphy,
-            sdram_module.geom_settings,
-            sdram_module.timing_settings)
+        if not self.integrated_main_ram_size:
+            self.submodules.ddrphy = ECP5DDRPHY(
+                platform.request("ddram"),
+                sys_clk_freq=sys_clk_freq)
+            self.add_constant("ECP5DDRPHY", None)
+            ddrphy_init = ECP5DDRPHYInit(self.crg, self.ddrphy)
+            self.submodules += ddrphy_init
+            sdram_module = MT41K64M16(sys_clk_freq, "1:2")
+            self.register_sdram(self.ddrphy,
+                sdram_module.geom_settings,
+                sdram_module.timing_settings)
 
         # led blinking
         led_counter = Signal(32)
@@ -258,17 +254,19 @@ class EthernetSoC(BaseSoC):
     }
     mem_map.update(BaseSoC.mem_map)
 
-    def __init__(self, **kwargs):
-        BaseSoC.__init__(self, **kwargs)
+    def __init__(self, eth_port=0, **kwargs):
+        BaseSoC.__init__(self, integrated_main_ram_size=0x8000, **kwargs)
 
         # ethernet mac
         self.submodules.ethphy = LiteEthPHYRGMII(
-            self.platform.request("eth_clocks"),
-            self.platform.request("eth"))
+            self.platform.request("eth_clocks", eth_port),
+            self.platform.request("eth", eth_port))
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32,
             interface="wishbone", endianness=self.cpu.endianness)
         self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
+        #self.add_constant("DEBUG_MICROUDP_TX", None)
+        #self.add_constant("DEBUG_MICROUDP_RX", None)
 
         self.ethphy.crg.cd_eth_rx.clk.attr.add("keep")
         self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
