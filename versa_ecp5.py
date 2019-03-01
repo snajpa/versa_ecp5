@@ -81,8 +81,8 @@ class DDR3TestSoC(SoCSDRAM):
         "analyzer":  17
     }
     csr_map.update(SoCSDRAM.csr_map)
-    def __init__(self):
-        platform = versa_ecp5.Platform(toolchain="diamond")
+    def __init__(self, toolchain="diamond"):
+        platform = versa_ecp5.Platform(toolchain=toolchain)
         sys_clk_freq = int(50e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type=None, l2_size=32,
@@ -164,8 +164,8 @@ class RGMIITestCRG(Module):
 # RGMIITestSoC -------------------------------------------------------------------------------------
 
 class RGMIITestSoC(SoCCore):
-    def __init__(self, eth_port=0):
-        platform = versa_ecp5.Platform(toolchain="diamond")
+    def __init__(self, eth_port=0, toolchain="diamond"):
+        platform = versa_ecp5.Platform(toolchain=toolchain)
         sys_clk_freq = int(133e6)
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type=None, with_uart=False,
@@ -187,8 +187,8 @@ class RGMIITestSoC(SoCCore):
 
         ethphy.crg.cd_eth_rx.clk.attr.add("keep")
         ethphy.crg.cd_eth_tx.clk.attr.add("keep")
-        platform.add_period_constraint(ethphy.crg.cd_eth_rx.clk, period_ns(125e6))
-        platform.add_period_constraint(ethphy.crg.cd_eth_tx.clk, period_ns(125e6))
+        platform.add_period_constraint(ethphy.crg.cd_eth_rx.clk, 1e9/125e6)
+        platform.add_period_constraint(ethphy.crg.cd_eth_tx.clk, 1e9/125e6)
 
         # led blinking
         led_counter = Signal(32)
@@ -206,8 +206,8 @@ class BaseSoC(SoCSDRAM):
         "firmware_ram": 0x20000000,
     }
     mem_map.update(SoCSDRAM.mem_map)
-    def __init__(self):
-        platform = versa_ecp5.Platform(toolchain="diamond")
+    def __init__(self, toolchain="diamond"):
+        platform = versa_ecp5.Platform(toolchain=toolchain)
         sys_clk_freq = int(50e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type="picorv32", l2_size=32,
@@ -278,19 +278,27 @@ class EthernetSoC(BaseSoC):
 # Build --------------------------------------------------------------------------------------------
 
 def main():
+
+    toolchain = "diamond"
+    toolchain_path = "/usr/local/diamond/3.10_x64/bin/lin64"
+    if "trellis" in sys.argv[1:]:
+        toolchain = "trellis"
+        toolchain_path = "/usr/share/trellis"
+
+
     if "ddr3_test" in sys.argv[1:]:
-        soc = DDR3TestSoC()
+        soc = DDR3TestSoC(toolchain=toolchain)
     elif "rgmii_test" in sys.argv[1:]:
-        soc = RGMIITestSoC()
+        soc = RGMIITestSoC(toolchain=toolchain)
     elif "base" in sys.argv[1:]:
-        soc = BaseSoC()
+        soc = BaseSoC(toolchain=toolchain)
     elif "ethernet" in sys.argv[1:]:
-        soc = EthernetSoC()
+        soc = EthernetSoC(toolchain=toolchain)
     else:
         print("missing target, supported: (ddr3_test, rgmii_test, base, ethernet)")
         exit(1)
     builder = Builder(soc, output_dir="build", csr_csv="test/csr.csv")
-    vns = builder.build(toolchain_path="/usr/local/diamond/3.10_x64/bin/lin64")
+    vns = builder.build(toolchain_path=toolchain_path)
     if isinstance(soc, DDR3TestSoC):
         soc.do_exit(vns)
         soc.generate_sdram_phy_py_header()
