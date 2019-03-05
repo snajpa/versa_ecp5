@@ -5,9 +5,9 @@
 #include <irq.h>
 #include <uart.h>
 #include <console.h>
-#include <generated/csr.h>
 
-#include "sdram.h"
+#include <generated/csr.h>
+#include "sdram_bist.h"
 
 static char *readstr(void)
 {
@@ -74,29 +74,14 @@ static void help(void)
 	puts("help                            - this command");
 	puts("reboot                          - reboot CPU");
 	puts("");
-	puts("sdram_init                      - initialize SDRAM");
-	puts("sdram_test                      - test SDRAM from CPU");
-	puts("");
-	puts("debug:");
-	puts("phy_diag                        - diagnose SDRAM");
-	puts("phy_reset                       - reset SDRAM PHY");
-	puts("phy_bitslip                     - read bitslip");
-	puts("");
+#ifdef CSR_SDRAM_GENERATOR_BASE
+	puts("sdram_bist burst_length [random]- stress & test SDRAM from HW");
+#endif
 }
 
 static void reboot(void)
 {
 	ctrl_reset_write(1);
-}
-
-static void sdram_init(void)
-{
-	sdrinit();
-}
-
-static void sdram_test(void)
-{
-	memtest();
 }
 
 static void console_service(void)
@@ -111,12 +96,18 @@ static void console_service(void)
 		help();
 	else if(strcmp(token, "reboot") == 0)
 		reboot();
-	else if(strcmp(token, "sdram_test") == 0)
-		sdram_test();
-	else if(strcmp(token, "sdram_init") == 0)
-		sdram_init();
-	else if(strcmp(token, "phy_diag") == 0)
-		sdrdiag();
+#ifdef CSR_SDRAM_GENERATOR_BASE
+	else if(strcmp(token, "sdram_bist") == 0) {
+		unsigned int burst_length;
+		unsigned int random;
+		burst_length = atoi(get_token(&str));
+		random = atoi(get_token(&str));
+		if (burst_length == 0)
+			burst_length = 128; /* default to 128 if not specified */
+		printf("Executing SDRAM BIST with burst_length=%d and random=%d\n", burst_length, random);
+		sdram_bist(burst_length, random);
+	}
+#endif
 	prompt();
 }
 
@@ -124,10 +115,9 @@ int main(void)
 {
 	irq_setmask(0);
 	irq_setie(1);
-
 	uart_init();
-	puts("\nLiteDRAM CPU testing software built "__DATE__" "__TIME__"\n");
-	help();
+
+	puts("\nVersa ECP5 CPU testing software built "__DATE__" "__TIME__);
 	prompt();
 
 	while(1) {

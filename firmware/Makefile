@@ -1,10 +1,9 @@
 BUILD_DIR=../build/
-LINKER ?= linker.ld
 
 include $(BUILD_DIR)/software/include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-OBJECTS=isr.o sdram.o main.o
+OBJECTS=isr.o sdram_bist.o main.o
 
 all: firmware.bin
 
@@ -17,7 +16,7 @@ all: firmware.bin
 
 firmware.elf: $(OBJECTS)
 	$(LD) $(LDFLAGS) \
-		-T $(LINKER) \
+		-T linker.ld \
 		-N -o $@ \
 		 $(BUILD_DIR)/software/libbase/crt0-$(CPU)-ctr.o \
 		$(OBJECTS) \
