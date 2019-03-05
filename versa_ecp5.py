@@ -102,8 +102,7 @@ class DDR3TestSoC(SoCSDRAM):
         self.submodules.ddrphy = ECP5DDRPHY(
             platform.request("ddram"),
             sys_clk_freq=sys_clk_freq)
-        ddrphy_init = ECP5DDRPHYInit(self.crg, self.ddrphy)
-        self.submodules += ddrphy_init
+        self.comb += crg.stop.eq(self.ddrphy.init.stop)
         sdram_module = MT41K64M16(sys_clk_freq, "1:2")
         self.register_sdram(self.ddrphy,
             sdram_module.geom_settings,
@@ -223,8 +222,7 @@ class BaseSoC(SoCSDRAM):
                 platform.request("ddram"),
                 sys_clk_freq=sys_clk_freq)
             self.add_constant("ECP5DDRPHY", None)
-            ddrphy_init = ECP5DDRPHYInit(self.crg, self.ddrphy)
-            self.submodules += ddrphy_init
+            self.comb += crg.stop.eq(self.ddrphy.init.stop)
             sdram_module = MT41K64M16(sys_clk_freq, "1:2")
             self.register_sdram(self.ddrphy,
                 sdram_module.geom_settings,
