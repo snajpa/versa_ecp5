@@ -19,6 +19,8 @@ from litex.soc.interconnect import wishbone
 from litedram.modules import MT41K64M16
 from litedram.phy import ECP5DDRPHY, ECP5DDRPHYInit
 from litedram.sdram_init import get_sdram_phy_py_header
+from litedram.frontend.bist import LiteDRAMBISTGenerator
+from litedram.frontend.bist import LiteDRAMBISTChecker
 
 from liteeth.common import *
 from liteeth.phy.ecp5rgmii import LiteEthPHYRGMII
@@ -270,6 +272,18 @@ class EthernetSoC(BaseSoC):
         self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, 1e9/125e6)
         self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, 1e9/125e6)
 
+# BISTSoC --------------------------------------------------------------------------------------
+class BISTSoC(EthernetSoC):
+    csr_map = {
+        "sdram_generator": 20,
+        "sdram_checker":   21
+    }
+    csr_map.update(EthernetSoC.csr_map)
+    def __init__(self, **kwargs):
+        EthernetSoC.__init__(self, **kwargs)
+        self.submodules.sdram_generator = LiteDRAMBISTGenerator(self.sdram.crossbar.get_port())
+        self.submodules.sdram_checker = LiteDRAMBISTChecker(self.sdram.crossbar.get_port())
+
 # Build --------------------------------------------------------------------------------------------
 
 def main():
@@ -289,8 +303,10 @@ def main():
         soc = BaseSoC(toolchain=toolchain)
     elif "ethernet" in sys.argv[1:]:
         soc = EthernetSoC(toolchain=toolchain)
+    elif "bist" in sys.argv[1:]:
+        soc = BISTSoC(toolchain=toolchain)
     else:
-        print("missing target, supported: (ddr3_test, rgmii_test, base, ethernet)")
+        print("missing target, supported: (ddr3_test, rgmii_test, base, ethernet, bist)")
         exit(1)
     builder = Builder(soc, output_dir="build", csr_csv="test/csr.csv")
     vns = builder.build(toolchain_path=toolchain_path)
