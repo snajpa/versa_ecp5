@@ -217,16 +217,15 @@ class BaseSoC(SoCSDRAM):
         self.submodules.crg = crg
 
         # sdram
-        if not self.integrated_main_ram_size:
-            self.submodules.ddrphy = ECP5DDRPHY(
-                platform.request("ddram"),
-                sys_clk_freq=sys_clk_freq)
-            self.add_constant("ECP5DDRPHY", None)
-            self.comb += crg.stop.eq(self.ddrphy.init.stop)
-            sdram_module = MT41K64M16(sys_clk_freq, "1:2")
-            self.register_sdram(self.ddrphy,
-                sdram_module.geom_settings,
-                sdram_module.timing_settings)
+        self.submodules.ddrphy = ECP5DDRPHY(
+            platform.request("ddram"),
+            sys_clk_freq=sys_clk_freq)
+        self.add_constant("ECP5DDRPHY", None)
+        self.comb += crg.stop.eq(self.ddrphy.init.stop)
+        sdram_module = MT41K64M16(sys_clk_freq, "1:2")
+        self.register_sdram(self.ddrphy,
+            sdram_module.geom_settings,
+            sdram_module.timing_settings)
 
         # led blinking
         led_counter = Signal(32)
@@ -253,7 +252,7 @@ class EthernetSoC(BaseSoC):
     mem_map.update(BaseSoC.mem_map)
 
     def __init__(self, eth_port=0, **kwargs):
-        BaseSoC.__init__(self, integrated_main_ram_size=0x8000, **kwargs)
+        BaseSoC.__init__(self, **kwargs)
 
         # ethernet mac
         self.submodules.ethphy = LiteEthPHYRGMII(
