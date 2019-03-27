@@ -207,7 +207,7 @@ class BaseSoC(SoCSDRAM):
         platform = versa_ecp5.Platform(toolchain=toolchain)
         sys_clk_freq = int(75e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
-                          cpu_type="vexriscv", cpu_variant="min",
+                          cpu_type="vexriscv",
                           integrated_rom_size=0x8000,
                           **kwargs)
 
