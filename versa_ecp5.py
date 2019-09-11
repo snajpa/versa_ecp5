@@ -18,7 +18,7 @@ from litex.soc.interconnect import wishbone
 
 from litedram.modules import MT41K64M16
 from litedram.phy import ECP5DDRPHY, ECP5DDRPHYInit
-from litedram.sdram_init import get_sdram_phy_py_header
+from litedram.init import get_sdram_phy_py_header
 from litedram.frontend.bist import LiteDRAMBISTGenerator
 from litedram.frontend.bist import LiteDRAMBISTChecker
 
