@@ -7,7 +7,6 @@ from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
 
 from litex.build.generic_platform import *
-from litex.boards.platforms import versa_ecp5
 
 from litex.soc.cores.clock import *
 from litex.soc.integration.soc_core import *
@@ -28,6 +27,9 @@ from liteeth.core.mac import LiteEthMAC
 from liteeth.core import LiteEthUDPIPCore
 
 from litescope import LiteScopeAnalyzer
+
+from versa_ecp5_platform import Platform
+from rom import RomPhy
 
 # DDR3TestCRG --------------------------------------------------------------------------------------
 
@@ -84,7 +86,7 @@ class DDR3TestSoC(SoCSDRAM):
     }
     csr_map.update(SoCSDRAM.csr_map)
     def __init__(self, toolchain="diamond"):
-        platform = versa_ecp5.Platform(toolchain=toolchain)
+        platform = Platform(toolchain=toolchain)
         sys_clk_freq = int(50e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type=None, l2_size=32,
@@ -166,7 +168,7 @@ class RGMIITestCRG(Module):
 
 class RGMIITestSoC(SoCCore):
     def __init__(self, eth_port=0, toolchain="diamond"):
-        platform = versa_ecp5.Platform(toolchain=toolchain)
+        platform = Platform(toolchain=toolchain)
         sys_clk_freq = int(133e6)
         SoCCore.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type=None, with_uart=False,
@@ -204,8 +206,8 @@ class BaseSoC(SoCSDRAM):
     }
     csr_map.update(SoCSDRAM.csr_map)
     def __init__(self, toolchain="diamond", **kwargs):
-        platform = versa_ecp5.Platform(toolchain=toolchain)
-        sys_clk_freq = int(75e6)
+        platform = Platform(toolchain=toolchain)
+        sys_clk_freq = int(100e6)
         SoCSDRAM.__init__(self, platform, clk_freq=sys_clk_freq,
                           cpu_type="vexriscv",
                           integrated_rom_size=0x8000,
@@ -272,6 +274,24 @@ class EthernetSoC(BaseSoC):
         self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, 1e9/125e6)
         self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, 1e9/125e6)
 
+# RomEmuSoC --------------------------------------------------------------------------------------
+
+class RomEmuSoC(EthernetSoC):
+    csr_map = {
+        "romemu": 20,
+    }
+    csr_map.update(EthernetSoC.csr_map)
+
+    interrupt_map = {
+        "romemu": 4,
+    }
+    interrupt_map.update(EthernetSoC.interrupt_map)
+
+    def __init__(self, eth_port=0, **kwargs):
+        EthernetSoC.__init__(self, **kwargs)
+
+        # ethernet mac
+        self.submodules.romemu = RomPhy(self, self.platform.request("romemu_pads"))
 # BISTSoC --------------------------------------------------------------------------------------
 class BISTSoC(EthernetSoC):
     csr_map = {
@@ -303,6 +323,8 @@ def main():
         soc = BaseSoC(toolchain=toolchain)
     elif "ethernet" in sys.argv[1:]:
         soc = EthernetSoC(toolchain=toolchain)
+    elif "romemu" in sys.argv[1:]:
+        soc = RomEmuSoC(toolchain=toolchain)
     elif "bist" in sys.argv[1:]:
         soc = BISTSoC(toolchain=toolchain)
     else:

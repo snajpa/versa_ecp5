@@ -3,7 +3,7 @@ BUILD_DIR=../build/
 include $(BUILD_DIR)/software/include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-OBJECTS=isr.o sdram_bist.o main.o
+OBJECTS=isr.o sdram_bist.o main.o microudp.o tftp.o
 
 all: firmware.bin
 
@@ -21,6 +21,7 @@ firmware.elf: $(OBJECTS)
 		 $(BUILD_DIR)/software/libbase/crt0-$(CPU)-ctr.o \
 		$(OBJECTS) \
 		-L$(BUILD_DIR)/software/libbase \
+		-L$(BUILD_DIR)/software/libnet \
 		-L$(BUILD_DIR)/software/libcompiler_rt \
 		-lbase-nofloat -lcompiler_rt
 	chmod -x $@

@@ -7,7 +7,11 @@
 #include <console.h>
 
 #include <generated/csr.h>
+#include <generated/mem.h>
 #include "sdram_bist.h"
+
+#include <net/microudp.h>
+#include <net/tftp.h>
 
 static char *readstr(void)
 {
@@ -71,8 +75,11 @@ static void prompt(void)
 static void help(void)
 {
 	puts("Available commands:");
-	puts("help                            - this command");
-	puts("reboot                          - reboot CPU");
+	puts("h help                            - this command");
+	puts("o loadsound                       - load sound.bin");
+	puts("l lastaddr                        - last address used");
+	puts("p printhdr                        - loaded sound.bin header");
+	puts("r reboot                          - reboot CPU");
 	puts("");
 #ifdef CSR_SDRAM_GENERATOR_BASE
 	puts("sdram_bist burst_length [random]- stress & test SDRAM from HW");
@@ -84,6 +91,37 @@ static void reboot(void)
 	ctrl_reset_write(1);
 }
 
+static const unsigned char macadr[6] = {0x10, 0xe2, 0xd5, 0x00, 0x00, 0x00};
+
+#define SOUND_RAM_BASE		MAIN_RAM_BASE + 0x100000
+void loadsound(void);
+void loadsound(void)
+{
+	unsigned int localip  = IPTOINT(192, 168, 1, 50);
+	unsigned int remoteip = IPTOINT(192, 168, 1, 100);
+	microudp_start(macadr, localip);
+
+	tftp_get(remoteip, 69, "sound.bin", (void *)SOUND_RAM_BASE);
+}
+
+void lastaddr(void);
+void lastaddr(void)
+{
+	unsigned int lastaddr = romemu_lst_addr_read();
+	printf("Last address: 0x%08x\n", lastaddr);
+}
+
+void printhdr(void);
+void printhdr(void)
+{
+	printf("Header:\n");
+	for (int i = 0; i < 32; i++) {
+		unsigned char *addr = (unsigned char *)(SOUND_RAM_BASE + i);
+		printf("%02x ", *addr);
+	}
+	printf("\n");
+}
+
 static void console_service(void)
 {
 	char *str;
@@ -92,9 +130,20 @@ static void console_service(void)
 	str = readstr();
 	if(str == NULL) return;
 	token = get_token(&str);
-	if(strcmp(token, "help") == 0)
+	if((strcmp(token, "help") == 0) ||
+	   (strcmp(token, "h") == 0))
 		help();
-	else if(strcmp(token, "reboot") == 0)
+	else if((strcmp(token, "lastaddr") == 0) ||
+	        (strcmp(token, "l") == 0))
+		lastaddr();
+	else if((strcmp(token, "printhdr") == 0) ||
+	        (strcmp(token, "p") == 0))
+		printhdr();
+	else if((strcmp(token, "loadsound") == 0) ||
+	        (strcmp(token, "o") == 0))
+		loadsound();
+	else if((strcmp(token, "reboot") == 0) ||
+	        (strcmp(token, "r") == 0))
 		reboot();
 #ifdef CSR_SDRAM_GENERATOR_BASE
 	else if(strcmp(token, "sdram_bist") == 0) {

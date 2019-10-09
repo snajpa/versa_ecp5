@@ -121,6 +121,11 @@ _io = [
         Subsignal("tx_n", Pins("W5")),
         Subsignal("perst", Pins("A6"), IOStandard("LVCMOS33")),
     ),
+    ("romemu_pads", 0,
+        Subsignal("addr_i", Pins("A12 A13 B13 C13 D13 E13 A14 C14 D14 E14 D11 C10 A9 B10 D12 E12 B15 C15 D15 E15"), IOStandard("LVCMOS33")),
+        Subsignal("data_o", Pins("A16 B16 C16 D16 B17 C17 A17 B18"), IOStandard("LVCMOS33")),
+        Subsignal("oe", Pins("A18"), IOStandard("LVCMOS33")),
+    ),
 ]
 
 
